@@ -32,7 +32,7 @@ export default function TopPage() {
           <div className="max-w-6xl mx-auto relative">
             <div className="relative aspect-video md:aspect-21/9 lg:aspect-25/9 w-full">
               <img
-                src="http://bsbl.geo.jp/nonbays/pic/top.jpg"
+                src="https://gylktpbmsqzmjrzbzpkd.supabase.co/storage/v1/object/public/web_images/top.jpg"
                 alt="チーム集合写真"
                 className="w-full h-full object-cover object-center"
               />
