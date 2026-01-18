@@ -1,8 +1,8 @@
-import { login, signup } from './actions'
+import { login, signup } from "./actions";
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-24">
+    <div className="flex min-h-screen flex-col items-center justify-center p-3 md:p-24 ">
       <div className="w-full max-w-md space-y-8 rounded-xl border p-10 shadow-md">
         <div className="text-center">
           <h1 className="text-3xl font-bold">管理者ログイン</h1>
@@ -14,7 +14,10 @@ export default function LoginPage() {
         <form className="mt-8 space-y-6">
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700"
+              >
                 メールアドレス
               </label>
               <input
@@ -26,7 +29,10 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700"
+              >
                 パスワード
               </label>
               <input
@@ -57,5 +63,5 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
-  )
+  );
 }
