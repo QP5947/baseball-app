@@ -36,6 +36,7 @@ const formatted = new Intl.DateTimeFormat("ja-JP", {
 });
 
 const gameStatusMap = [
+  { value: "0", label: "試合中" },
   { value: "1", label: "勝利" },
   { value: "2", label: "敗戦" },
   { value: "3", label: "引き分け" },
