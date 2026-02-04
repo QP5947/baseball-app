@@ -158,9 +158,10 @@ export default function BattingResultForm({
   });
 
   // 選手行の削除
-  const removePlayerRow = (index: number) => {
-    if (!players[index].isSub) return;
-    setPlayers(players.filter((_, i) => i !== index));
+  const removePlayerRow = (playerRowId: string) => {
+    const target = players.find((p) => p.id === playerRowId);
+    if (!target?.isSub) return;
+    setPlayers((prev) => prev.filter((p) => p.id !== playerRowId));
   };
 
   // 選手管理

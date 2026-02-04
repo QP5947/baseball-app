@@ -1,8 +1,10 @@
 import YearSelector from "@/admin/components/YearSelector";
 import { createClient } from "@/lib/supabase/server";
-import { Check, Edit } from "lucide-react";
+import { Check, Edit, Zap } from "lucide-react";
 import Link from "next/link";
 import AdminMenu from "../../components/AdminMenu";
+import DeleteButton from "../../components/DeleteButton";
+import { deleteGame } from "./actions";
 
 function getFiscalYearRange(year: number) {
   return {
@@ -73,6 +75,7 @@ export default async function GameResultsPage({
 
   // 試合結果表示用map
   const gameStatusMap: Record<string, string> = {
+    0: "試合中",
     1: "勝利",
     2: "敗戦",
     3: "引き分け",
@@ -137,12 +140,30 @@ export default async function GameResultsPage({
                 </td>
                 <td className="p-4 text-center">
                   <div className="flex items-center justify-center gap-3">
+                    {(game.status === 0 || !game.status) && (
+                      <Link
+                        href={`/admin/games/scoring/${game.id}`}
+                        className="text-gray-400 hover:text-blue-600"
+                      >
+                        <Zap size={18} />
+                      </Link>
+                    )}
                     <Link
                       href={`/admin/games/results/${game.id}?year=${selectedYear}`}
                       className="text-gray-400 hover:text-blue-600"
                     >
                       <Edit size={18} />
                     </Link>
+
+                    <DeleteButton
+                      id={game.id}
+                      deleteName={
+                        formatted.format(new Date(game.start_datetime)) +
+                        "～ VS" +
+                        game.vsteams.name
+                      }
+                      action={deleteGame}
+                    />
                   </div>
                 </td>
               </tr>

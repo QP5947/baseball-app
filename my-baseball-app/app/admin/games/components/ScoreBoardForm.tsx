@@ -13,17 +13,19 @@ export default function ScoreBoardForm({
 }) {
   // イニングの得点状態（初期は7イニング分）
   const [topInnings, setTopInnings] = useState<(number | string)[]>(
-    top_points?.length > 0 ? top_points : Array(7).fill("")
+    top_points?.length > 0 ? top_points : Array(7).fill(""),
   );
   const [bottomInnings, setBottomInnings] = useState<(number | string)[]>(
-    bottom_points?.length > 0 ? bottom_points : Array(7).fill("")
+    bottom_points?.length > 0
+      ? bottom_points
+      : Array(top_points.length).fill(""),
   );
 
   // 合計点を計算する関数
   const calculateTotal = (innings: (number | string)[]) => {
     return innings.reduce<number>(
       (sum, score) => sum + (Number(score) || 0),
-      0
+      0,
     );
   };
 
@@ -31,7 +33,7 @@ export default function ScoreBoardForm({
   const handleScoreChange = (
     index: number,
     value: string,
-    type: "top" | "bottom"
+    type: "top" | "bottom",
   ) => {
     const isTop = type === "top";
     const newInnings = isTop ? [...topInnings] : [...bottomInnings];
@@ -98,14 +100,16 @@ export default function ScoreBoardForm({
             >
               <PlusCircle size={16} className="mx-auto" />
             </th>
-            <th className="border p-2 w-16 bg-green-800">計</th>
+            <th className="border border-white p-2 w-16 bg-green-800 text-white">
+              計
+            </th>
           </tr>
         </thead>
         <tbody className="text-center">
           {rows.map((row) => (
             <tr key={row.type}>
               {/* ラジオボタン */}
-              <td className="border p-2">
+              <td className="border border-white p-2">
                 <input
                   type="radio"
                   name="is_batting_first"
@@ -118,7 +122,7 @@ export default function ScoreBoardForm({
               </td>
               {/* 得点入力欄 */}
               {row.data.map((score, i) => (
-                <td key={i} className="border p-1">
+                <td key={i} className="border border-white p-1">
                   <input
                     type="number"
                     min="0"
@@ -135,7 +139,7 @@ export default function ScoreBoardForm({
               ))}
               {/* イニング追加 */}
               <td
-                className={`border p-2 cursor-pointer transition-colors ${
+                className={`border border-white p-2 cursor-pointer transition-colors ${
                   isPlusHovered ? "bg-green-500" : "bg-green-600"
                 }`}
                 onClick={addInning}
@@ -143,7 +147,7 @@ export default function ScoreBoardForm({
                 onMouseLeave={() => setIsPlusHovered(false)}
               ></td>
               {/* 合計 */}
-              <td className="border p-2 font-bold bg-green-800">
+              <td className="border p-2 font-bold bg-green-800 text-white">
                 {calculateTotal(row.data)}
               </td>
             </tr>

@@ -18,9 +18,8 @@ type PitchingResultsType =
 export async function saveGame(formData: FormData) {
   // ログイン者のチームIDを取得
   const supabase = await createClient();
-  const { data: myTeamId, error: rpcError } = await supabase.rpc(
-    "get_my_team_id"
-  );
+  const { data: myTeamId, error: rpcError } =
+    await supabase.rpc("get_my_team_id");
   if (rpcError || !myTeamId) {
     console.error("チームIDの取得に失敗しました:", rpcError);
     return;
@@ -107,7 +106,7 @@ export async function saveGame(formData: FormData) {
           })
           .filter(
             (inning, detailIdx) =>
-              formData.getAll(`at_bat_result_no[${id}]`)[detailIdx]
+              formData.getAll(`at_bat_result_no[${id}]`)[detailIdx],
           ) as any[],
       };
     })
@@ -165,9 +164,15 @@ export async function saveGame(formData: FormData) {
 
 // 削除
 export async function deleteGame(formData: FormData) {
-  const id = formData.get("id");
   const supabase = await createClient();
-  await supabase.from("games").delete().eq("id", id);
+  const { data: myTeamId, error: rpcError } =
+    await supabase.rpc("get_my_team_id");
+
+  await supabase
+    .from("games")
+    .delete()
+    .eq("team_id", myTeamId)
+    .eq("id", formData.get("id"));
 
   revalidatePath("/admin/games");
 }

@@ -114,10 +114,12 @@ export default function AdminMenu({ children }: { children: React.ReactNode }) {
       >
         <div className="p-4 flex items-center justify-between">
           {isOpen ? (
-            <h1 className="text-xl font-bold truncate">
-              DashBase
-              <span className="text-gray-400 text-xs italic">Manager</span>
-            </h1>
+            <Link href="/admin/dashboard">
+              <h1 className="text-xl font-bold truncate">
+                DashBase
+                <span className="text-gray-400 text-xs italic">Manager</span>
+              </h1>
+            </Link>
           ) : (
             <div className="w-0 overflow-hidden" />
           )}

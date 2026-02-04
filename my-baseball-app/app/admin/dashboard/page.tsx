@@ -113,9 +113,9 @@ export default async function DashboardPage() {
         </header>
 
         {todayGame ? (
-          <Link href="games/scoring/1/">
+          <Link href={`games/scoring/${todayGame.id}/`}>
             <div className="bg-white rounded-xl shadow-sm border-2 border-red-600 p-6 mb-6">
-              <p className="text-gray-500">今日の試合</p>
+              <div className="text-gray-500">今日の試合</div>
               <div className="flex flex-col md:flex-row text-lg font-bold">
                 <div>
                   <span className="mr-1">
@@ -141,7 +141,7 @@ export default async function DashboardPage() {
             </div>
           </Link>
         ) : (
-          <Link href="games/scoring/1/">
+          <Link href="games/scoring/11/">
             {/* デモ用 */}
             <div className="bg-white rounded-xl shadow-sm border-2 border-red-600 p-6 mb-6">
               <p className="text-gray-500">今日の試合（デモ用表示）</p>
@@ -188,8 +188,8 @@ export default async function DashboardPage() {
             </p>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm border">
-            <p className="text-gray-500">次の試合</p>
-            <p className="text-lg font-bold">
+            <div className="text-gray-500">次の試合</div>
+            <div className="text-lg font-bold">
               <div>
                 {nextGame ? (
                   <>
@@ -217,7 +217,7 @@ export default async function DashboardPage() {
                   "試合はありません"
                 )}
               </div>
-            </p>
+            </div>
           </div>
         </div>
 

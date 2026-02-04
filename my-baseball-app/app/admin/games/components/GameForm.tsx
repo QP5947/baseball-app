@@ -1,17 +1,7 @@
 import { Save } from "lucide-react";
 import Link from "next/link";
 import { saveGame } from "../actions";
-
-// 現在時刻をデフォルト値の形式に変換する
-const getDefaultDateTime = (dateInput?: Date | string | null) => {
-  const date = dateInput ? new Date(dateInput) : new Date();
-
-  // 日本時間に調整
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-
-  // "2024-05-20T10:30:00.000Z" から先頭16文字を切り出す
-  return date.toISOString().slice(0, 16);
-};
+import { getDefaultDateTime } from "@/utils/getDefaultDateTime";
 
 // 既存データがある場合は initialData として受け取る
 export default function GameForm({
@@ -107,7 +97,6 @@ export default function GameForm({
         <input
           name="remarks"
           type="text"
-          required
           className="w-full p-3 border rounded-lg focus:ring-2 border-gray-400 focus:ring-blue-500 outline-none transition text-gray-800 placeholder-gray-400"
           placeholder="例：準備当番"
           defaultValue={initialData?.remarks || ""}

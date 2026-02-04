@@ -50,7 +50,7 @@ export default async function EditGameResultPage({
       `
       *, 
       batting_result_details (*)
-      `
+      `,
     )
     .eq("game_id", id)
     .order("batting_index")

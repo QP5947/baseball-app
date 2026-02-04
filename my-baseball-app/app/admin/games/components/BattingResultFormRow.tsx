@@ -19,10 +19,10 @@ interface PlayerRowProps {
     field: string,
     val: any,
     rIdx?: number,
-    subField?: string
+    subField?: string,
   ) => void;
   addPlayerRow: (pIdx: number) => void;
-  removePlayerRow: (pIdx: number) => void;
+  removePlayerRow: (playerRowId: string) => void;
   removePosition: (pIdx: number, posIdx: number) => void;
   addPosition: (pIdx: number) => void;
   addInning: () => void;
@@ -50,7 +50,7 @@ export interface PlayerProps {
 // 氏名のフィルター定義
 const customFilter = (
   option: FilterOptionOption<PlayerRow>,
-  inputValue: string
+  inputValue: string,
 ): boolean => {
   // 入力が空なら全て表示
   if (!inputValue) return true;
@@ -71,8 +71,8 @@ const getNameStyle = (isSub: boolean): StylesConfig<any, false> => {
       backgroundColor: state.isSelected
         ? "#3b82f6"
         : state.isFocused
-        ? "#f1f5f9"
-        : "white",
+          ? "#f1f5f9"
+          : "white",
     }),
     control: (base) => ({
       ...base,
@@ -144,7 +144,7 @@ const BattingResultFormRow = memo(
             {player.isSub && (
               <button
                 type="button"
-                onClick={() => removePlayerRow(pIdx)}
+                onClick={() => removePlayerRow(player.id)}
                 className="text-slate-300 hover:text-red-500 transition-colors w-full"
               >
                 <Trash2 size={14} className="mx-auto" />
@@ -176,7 +176,7 @@ const BattingResultFormRow = memo(
                   <input
                     type="hidden"
                     name={`batting_order[${player.id}]`}
-                    value={player.battingOrder}
+                    value={String(player.battingOrder)}
                   />
                 </span>
               )
@@ -209,12 +209,12 @@ const BattingResultFormRow = memo(
                 updateValue(
                   pIdx,
                   "name",
-                  selectedOption ? selectedOption.name : ""
+                  selectedOption ? selectedOption.name : "",
                 );
                 updateValue(
                   pIdx,
                   "playerId",
-                  selectedOption ? selectedOption.id : ""
+                  selectedOption ? selectedOption.id : "",
                 );
               }}
               // リストにない値の入力を防ぐ
@@ -312,7 +312,7 @@ const BattingResultFormRow = memo(
                         "results",
                         e.target.value,
                         rIdx,
-                        "result"
+                        "result",
                       );
                     }
                   }}
@@ -345,7 +345,7 @@ const BattingResultFormRow = memo(
                         "results",
                         e.target.value,
                         rIdx,
-                        "direction"
+                        "direction",
                       );
                     }
                   }}
@@ -446,7 +446,7 @@ const BattingResultFormRow = memo(
                   updateValue(
                     pIdx,
                     "steal_miss",
-                    parseInt(e.target.value) || 0
+                    parseInt(e.target.value) || 0,
                   );
                 }
               }}
@@ -499,9 +499,10 @@ const BattingResultFormRow = memo(
     // playerデータが変わっていない、かつイニング数などが変わっていなければ false を返す
     return (
       prevProps.player === nextProps.player &&
-      prevProps.atBatResult === nextProps.atBatResult
+      prevProps.atBatResult === nextProps.atBatResult &&
+      prevProps.pIdx === nextProps.pIdx
     );
-  }
+  },
 );
 
 export default BattingResultFormRow;
