@@ -246,7 +246,7 @@ export default function RealTimePitchingForm({
               <div className="flex justify-between items-end">
                 <h3 className="text-2xl font-black text-slate-800 whitespace-nowrap">
                   {getPlayerNameByPlayerId(
-                    localPitchingResults[displayPitcherIndex]?.player_id,
+                    localPitchingResults[displayPitcherIndex]?.player_id || "",
                   )}
                 </h3>
               </div>
