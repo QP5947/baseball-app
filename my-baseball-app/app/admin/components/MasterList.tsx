@@ -94,15 +94,15 @@ export default function MasterList({
       onDragEnd={handleDragEnd}
     >
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-        <table className="w-full text-left border-collapse table-fixed">
+        <table className="w-full text-left border-collapse table-fixed ">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="p-4 w-12 text-center"></th>
-              <th className="p-4 font-semibold text-gray-600 w-24">名前</th>
-              <th className="p-4 font-semibold text-gray-600 w-16 text-center">
+              <th className="p-4 w-10 text-center"></th>
+              <th className="p-4 font-semibold text-gray-600">名前</th>
+              <th className="p-4 font-semibold text-gray-600 w-18 text-center">
                 表示
               </th>
-              <th className="p-4 font-semibold text-gray-600 w-20 text-center">
+              <th className="p-4 font-semibold text-gray-600 w-18 text-center">
                 操作
               </th>
             </tr>

@@ -1,222 +1,227 @@
-"use client";
-
-import {
-  AlertCircle,
-  CheckCircle2,
-  ChevronLeft,
-  HelpCircle,
-  Save,
-  UserPlus,
-  XCircle,
-} from "lucide-react";
-import { useState } from "react";
-import PlayerMenu from "../../components/PlayerMenu";
+import { createClient } from "@/lib/supabase/server";
+import { UserPlus, ChevronLeft, MessageCircle } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import PlayerMenu from "../../components/PlayerMenu";
+import AttendanceDetailClient from "./components/AttendanceDetailClient";
 
-export default function AttendanceDetail() {
-  const [status, setStatus] = useState<
-    "attending" | "absent" | "pending" | null
-  >(null);
-  const [helpers, setHelpers] = useState(0);
-  const [comment, setComment] = useState("");
+const normalizeStatus = (row: any): "attending" | "absent" | "pending" => {
+  const raw = row?.attendance_no ?? row?.status ?? null;
+  if (raw === 1) return "attending";
+  if (raw === 2) return "absent";
+  return "pending";
+};
 
-  // サンプルデータ：チーム全体の状況
-  const stats = { attending: 8, absent: 4, pending: 3, helperTotal: 2 };
-  const memberComments = [
-    {
-      name: "田中 健太",
-      status: "attending",
-      text: "10分ほど遅れます！",
-      time: "10:30",
-    },
-    {
-      name: "佐藤 亮",
-      status: "pending",
-      text: "仕事の調整中です。前日に確定します。",
-      time: "昨日",
-    },
-  ];
-  const pendingUsers = ["鈴木 一郎", "高橋 誠", "伊藤 博"];
+const getRelativeTime = (date: Date) => {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "たった今";
+  if (diffMins < 60) return `${diffMins}分前`;
+  if (diffHours < 24) return `${diffHours}時間前`;
+  if (diffDays < 7) return `${diffDays}日前`;
+  return date.toLocaleDateString("ja-JP");
+};
+
+export default async function AttendanceDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/player/login");
+  }
+
+  const { data: player } = await supabase
+    .from("players")
+    .select("id,name,no,team_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!player) {
+    redirect("/player/login");
+  }
+
+  // 試合情報を取得
+  const { data: game } = await supabase
+    .from("games")
+    .select("*,leagues(name),grounds(name),vsteams(name)")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!game) {
+    redirect("/player/schedule");
+  }
+
+  // 出欠情報を取得
+  const { data: schedules } = await supabase
+    .from("attendance")
+    .select("*")
+    .eq("game_id", id);
+
+  // プレイヤー一覧を取得（is_player or is_manager = true）
+  const { data: allPlayers } = await supabase
+    .from("players")
+    .select("id,name,no")
+    .eq("team_id", player.team_id)
+    .or("is_player.eq.true,is_manager.eq.true");
+
+  // 統計情報
+  const attending = (schedules || []).filter(
+    (s: any) => normalizeStatus(s) === "attending",
+  ).length;
+  const absent = (schedules || []).filter(
+    (s: any) => normalizeStatus(s) === "absent",
+  ).length;
+  const pending = (schedules || []).filter(
+    (s: any) => normalizeStatus(s) === "pending",
+  ).length;
+
+  // 助っ人の合計数
+  const helperTotal = (schedules || []).reduce(
+    (sum: number, s: any) => sum + (s.helper_count || 0),
+    0,
+  );
+
+  const mySchedule = (schedules || []).find(
+    (s: any) => s.player_id === player.id,
+  );
+
+  // コメント取得（コメントがあるか、助っ人数が1以上の場合）
+  const scheduleWithComments = (schedules || []).filter(
+    (s: any) => s.comment && s.comment.trim(),
+  );
+  const memberComments = scheduleWithComments.map((s: any) => {
+    const p = (allPlayers || []).find((pl: any) => pl.id === s.player_id);
+    return {
+      name: p?.name || "不明",
+      status: normalizeStatus(s),
+      text: s.comment,
+      helperCount: s.helper_count || 0,
+      time: getRelativeTime(new Date(s.created_at)),
+    };
+  });
+
+  // 未回答者（scheduleに登録がない & is_player or is_manager = true）
+  const schedulePlayerIds = (schedules || []).map((s: any) => s.player_id);
+  const pendingUsers = (allPlayers || [])
+    .filter((p: any) => !schedulePlayerIds.includes(p.id))
+    .map((p: any) => p.name);
+
+  const scheduleByPlayer = new Map(
+    (schedules || []).map((s: any) => [s.player_id, s]),
+  );
+
+  const attendedPlayers = (allPlayers || [])
+    .filter((p: any) => {
+      const s = scheduleByPlayer.get(p.id);
+      return s && normalizeStatus(s) === "attending";
+    })
+    .map((p: any) => {
+      const s = scheduleByPlayer.get(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        helperCount: s?.helper_count || 0,
+        comment: s?.comment || "",
+      };
+    });
+
+  const absentPlayers = (allPlayers || [])
+    .filter((p: any) => {
+      const s = scheduleByPlayer.get(p.id);
+      return s && normalizeStatus(s) === "absent";
+    })
+    .map((p: any) => ({ id: p.id, name: p.name }));
+
+  const pendingPlayers = (allPlayers || [])
+    .filter((p: any) => {
+      const s = scheduleByPlayer.get(p.id);
+      return s && normalizeStatus(s) === "pending";
+    })
+    .map((p: any) => ({ id: p.id, name: p.name }));
+
+  const unansweredPlayers = (allPlayers || [])
+    .filter((p: any) => !scheduleByPlayer.has(p.id))
+    .map((p: any) => ({ id: p.id, name: p.name }));
 
   return (
     <div className="min-h-screen bg-gray-50/50 flex text-gray-800 relative">
-      <PlayerMenu>
-        {/* ヘッダー */}
-        <header className="top-0 z-20 flex items-center gap-4">
+      <PlayerMenu no={player.no ?? ""} name={player.name ?? ""}>
+        <header className="flex items-center gap-4 mb-4">
           <Link href="/player/schedule/" className="text-gray-600 p-1">
             <ChevronLeft size={24} />
           </Link>
-          <h1 className="font-black text-lg text-gray-900">出欠回答</h1>
+          <h1 className="font-black text-2xl text-gray-900">出欠回答</h1>
         </header>
-        <main className="max-w-5xl mx-auto p-4 space-y-6">
-          {/* 1. 全体の出欠ステータス (サマリー) */}
-          <section className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-gray-100">
-            <div className="flex justify-around items-center text-center">
-              <div>
-                <p className="font-black text-gray-400 uppercase mb-1">参加</p>
-                <div className="flex items-baseline gap-1 justify-center">
-                  <span className="text-3xl font-black text-emerald-600">
-                    {stats.attending + stats.helperTotal}
-                  </span>
-                  <span className="text-xs font-bold text-gray-400">人</span>
-                </div>
-                <p className="text-xs text-emerald-500 font-bold mt-1">
-                  (選手{stats.attending} + 助っ人{stats.helperTotal})
-                </p>
-              </div>
-              <div className="w-px h-10 bg-gray-100" />
-              <div>
-                <p className="font-black text-gray-400 uppercase mb-1">欠席</p>
-                <div className="flex items-baseline gap-1 justify-center">
-                  <span className="text-2xl font-black text-red-400">
-                    {stats.absent}
-                  </span>
-                  <span className="text-xs font-bold text-gray-400">人</span>
-                </div>
-              </div>
-              <div className="w-px h-10 bg-gray-100" />
-              <div>
-                <p className="font-black text-gray-400 uppercase mb-1">
-                  未回答
-                </p>
-                <div className="flex items-baseline gap-1 justify-center">
-                  <span className="text-2xl font-black text-orange-400">
-                    {stats.pending}
-                  </span>
-                  <span className="text-xs font-bold text-gray-400">人</span>
-                </div>
-              </div>
-            </div>
-          </section>
 
-          {/* 2. 自分の回答入力 */}
-          <section className="space-y-4 bg-white rounded-[2.5rem] p-6 shadow-sm border border-gray-100 ">
-            <h3 className="font-black text-gray-900 flex items-center gap-2">
-              <CheckCircle2 className="text-blue-600" /> 出欠入力
-            </h3>
+        <main className="max-w-5xl mx-auto space-y-6">
+          {/* すべてのロジックとUIをClient側に集約 */}
+          <AttendanceDetailClient
+            gameId={id}
+            playerId={player.id}
+            initialStatus={mySchedule ? normalizeStatus(mySchedule) : null}
+            initialHelpers={mySchedule?.helper_count ?? 0}
+            initialComment={mySchedule?.comment ?? ""}
+            attendedPlayers={attendedPlayers}
+            absentPlayers={absentPlayers}
+            pendingPlayers={pendingPlayers}
+            unansweredPlayers={unansweredPlayers}
+            helperTotal={helperTotal}
+          />
 
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                {
-                  id: "attending",
-                  label: "参加",
-                  icon: CheckCircle2,
-                  active: "bg-emerald-500 text-white border-emerald-500",
-                },
-                {
-                  id: "absent",
-                  label: "欠席",
-                  icon: XCircle,
-                  active: "bg-red-500 text-white border--500",
-                },
-                {
-                  id: "pending",
-                  label: "保留",
-                  icon: HelpCircle,
-                  active: "bg-amber-500 text-white border-amber-500",
-                },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setStatus(item.id as any)}
-                  className={`flex flex-col items-center py-3 rounded-2xl border-2 transition-all gap-1 ${
-                    status === item.id
-                      ? item.active
-                      : "bg-gray-50 border-transparent text-gray-400 hover:bg-gray-200"
-                  }`}
-                >
-                  <item.icon size={30} />
-                  <span className="font-bold">{item.label}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-2">
-                <UserPlus className="text-gray-400" />
-                <span className="font-bold text-gray-600">
-                  助っ人を連れていく
-                </span>
-              </div>
-              <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-1">
-                <button
-                  onClick={() => setHelpers(Math.max(0, helpers - 1))}
-                  className="w-10 h-10 bg-white rounded shadow-sm font-bold"
-                >
-                  -
-                </button>
-                <span className="font-black w-4 text-center">{helpers}</span>
-                <button
-                  onClick={() => setHelpers(helpers + 1)}
-                  className="w-10 h-10 bg-white rounded shadow-sm font-bold"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <textarea
-              placeholder="連絡事項があれば入力（遅刻、車出せます等）"
-              className="w-full h-20 bg-gray-50 rounded-2xl p-3 outline-none focus:ring-1 focus:ring-blue-500 resize-none"
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-            />
-          </section>
-
-          {/* 3. みんなのコメント */}
+          {/* みんなのコメント */}
           <section className="space-y-3">
-            <label className="font-black text-gray-400 tracking-widest ml-1">
+            <h3 className="text-xl font-black text-gray-900 flex items-center gap-2 px-1">
+              <MessageCircle className="text-blue-600" size={24} />
               コメント
-            </label>
+            </h3>
             <div className="space-y-2">
-              {memberComments.map((c, i) => (
-                <div
-                  key={i}
-                  className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex gap-3"
-                >
-                  <div
-                    className={`w-1 h-full rounded-full ${
-                      c.status === "attending"
-                        ? "bg-emerald-400"
-                        : "bg-orange-400"
-                    }`}
-                  />
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-black text-gray-800">{c.name}</span>
-                      <span className="text-gray-400">{c.time}</span>
-                    </div>
-                    <p className="text-gray-600 leading-relaxed">{c.text}</p>
-                  </div>
+              {memberComments.length === 0 ? (
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex gap-3">
+                  <p className="text-gray-400">コメントはまだありません</p>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          {/* 4. 未回答者 */}
-          <section className="space-y-2">
-            <label className="font-black text-red-400 uppercase tracking-widest ml-1 flex items-center gap-1">
-              <AlertCircle /> 未回答
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {pendingUsers.map((name) => (
-                <span
-                  key={name}
-                  className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full font-bold"
-                >
-                  {name}
-                </span>
-              ))}
+              ) : (
+                memberComments.map((c, i) => (
+                  <div
+                    key={i}
+                    className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex gap-3"
+                  >
+                    <div
+                      className={`w-1 h-full rounded-full ${
+                        c.status === "attending"
+                          ? "bg-emerald-400"
+                          : "bg-orange-400"
+                      }`}
+                    />
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-black text-gray-800">
+                          {c.name}
+                        </span>
+                        <span className="text-gray-400">{c.time}</span>
+                      </div>
+                      {c.text && (
+                        <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">
+                          {c.text}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </section>
         </main>
-        {/* 保存ボタン */}
-        <div className="fixed left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-gray-100 z-30">
-          <button className="w-full max-w-md mx-auto bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 shadow-xl shadow-blue-100 transition-transform active:scale-95">
-            <Save size={20} />
-            回答を保存する
-          </button>
-        </div>
       </PlayerMenu>
     </div>
   );

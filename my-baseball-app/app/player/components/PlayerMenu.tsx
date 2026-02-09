@@ -1,13 +1,26 @@
 "use client";
 
-import { BarChart3, CalendarCheck, Home, Menu, Target, X } from "lucide-react";
+import {
+  BarChart3,
+  CalendarCheck,
+  Home,
+  Menu,
+  Target,
+  X,
+  LogOut,
+} from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
+import { logout } from "../login/actions";
 
 export default function PlayerMenu({
+  no,
+  name,
   children,
 }: {
+  no: string | null;
+  name: string | null;
   children: React.ReactNode;
 }) {
   const navItems = [
@@ -35,10 +48,12 @@ export default function PlayerMenu({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="mb-3 text-xl font-bold tracking-tight text-blue-600">
-              DashBase
-              <span className="text-gray-400 text-xs italic">Player</span>
-            </div>
+            <Link href="/player/dashboard">
+              <div className="mb-3 text-xl font-bold tracking-tight text-blue-600">
+                DashBase
+                <span className="text-gray-400 text-xs italic">Player</span>
+              </div>
+            </Link>
           </div>
           {/* スマホ用：ドロワーを閉じるボタン（ドロワー内） */}
           <button
@@ -50,10 +65,8 @@ export default function PlayerMenu({
         </div>
 
         <div className="pt-6 flex items-center gap-3 mt-auto mb-5">
-          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold shadow-sm ring-2 ring-white overflow-hidden">
-            51
-          </div>
-          <div className="text-sm font-bold text-gray-800">市橋 翼</div>
+          <div className="font-bold text-blue-800"># {no ?? ""}</div>
+          <div className="font-bold text-gray-800">{name ?? ""}</div>
         </div>
 
         <nav className="space-y-1 flex-1">
@@ -61,7 +74,7 @@ export default function PlayerMenu({
             <Link
               key={item.name}
               href={item.href}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${
                 pathname === item.href || pathname.startsWith(`${item.href}/`)
                   ? "bg-blue-50 text-blue-600 shadow-sm"
                   : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
@@ -71,6 +84,18 @@ export default function PlayerMenu({
               {item.name}
             </Link>
           ))}
+
+          <Link
+            href=""
+            onClick={logout}
+            className="flex items-center gap-4 p-3 hover:bg-red-900/30 rounded-lg transition overflow-hidden whitespace-nowrap font-bold text-red-500"
+            title="ログアウト"
+          >
+            <span className="shrink-0">
+              <LogOut />
+            </span>
+            ログアウト
+          </Link>
         </nav>
       </aside>
 

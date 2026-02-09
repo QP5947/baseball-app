@@ -13,19 +13,21 @@ export default async function GroundsPage() {
 
   return (
     <AdminLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">球場管理</h1>
-        <p className="text-sm text-gray-600">
-          試合登録時に使用する球場名の作成・編集・並び替えができます。
-        </p>
-      </div>
+      <div className="max-w-2xl items-center mx-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">球場管理</h1>
+          <p className="text-gray-600">
+            試合登録時に使用する球場名の作成・編集・並び替えができます。
+          </p>
+        </div>
 
-      <GroundList
-        masters={Grounds || []}
-        upsertaction={saveGround}
-        deleteAction={deleteGround}
-        updateSortAction={updateSortOrder}
-      />
+        <GroundList
+          masters={Grounds || []}
+          upsertaction={saveGround}
+          deleteAction={deleteGround}
+          updateSortAction={updateSortOrder}
+        />
+      </div>
     </AdminLayout>
   );
 }

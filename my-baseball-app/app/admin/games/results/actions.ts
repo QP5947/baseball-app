@@ -155,6 +155,13 @@ export async function saveGame(formData: FormData) {
     return;
   }
 
+  const { error: refreshError } = await supabase.rpc(
+    "refresh_all_materialized_views",
+  );
+  if (refreshError) {
+    console.error("成績ビュー更新に失敗しました:", refreshError);
+  }
+
   // 一覧画面のデータを最新の状態に更新（キャッシュクリア）
   revalidatePath("/admin/games/results/");
 

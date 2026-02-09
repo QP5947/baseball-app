@@ -37,14 +37,22 @@ export async function updateSession(request: NextRequest) {
 
   const user = data?.claims
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/admin/login') &&
-    request.nextUrl.pathname.startsWith('/admin')
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
+  const pathname = request.nextUrl.pathname
+
+  if (!user && pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
     const url = request.nextUrl.clone()
     url.pathname = '/admin/login'
+    return NextResponse.redirect(url)
+  }
+
+  if (
+    !user &&
+    pathname.startsWith('/player') &&
+    !pathname.startsWith('/player/login') &&
+    !pathname.startsWith('/player/first-login')
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/player/login'
     return NextResponse.redirect(url)
   }
 

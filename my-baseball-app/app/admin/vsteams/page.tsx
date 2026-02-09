@@ -13,19 +13,21 @@ export default async function VsTeamsPage() {
 
   return (
     <AdminLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">対戦相手管理</h1>
-        <p className="text-sm text-gray-600">
-          試合登録時に使用する対戦相手の作成・編集・並び替えができます。
-        </p>
-      </div>
+      <div className="max-w-2xl items-center mx-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">対戦相手管理</h1>
+          <p className="text-gray-600">
+            試合登録時に使用する対戦相手の作成・編集・並び替えができます。
+          </p>
+        </div>
 
-      <VsTeamList
-        masters={VsTeams || []}
-        upsertaction={saveVsTeam}
-        deleteAction={deleteVsTeam}
-        updateSortAction={updateSortOrder}
-      />
+        <VsTeamList
+          masters={VsTeams || []}
+          upsertaction={saveVsTeam}
+          deleteAction={deleteVsTeam}
+          updateSortAction={updateSortOrder}
+        />
+      </div>
     </AdminLayout>
   );
 }

@@ -61,7 +61,9 @@ export default async function GamersPage() {
                 <td className="p-4 text-gray-600 text-center">
                   {formatted.format(new Date(game.start_datetime))}
                 </td>
-                <td className="p-4  text-gray-600">{game.leagues.name}</td>
+                <td className="p-4  text-gray-600">
+                  {game.leagues?.[0]?.name}
+                </td>
                 <td className="p-4 text-gray-600 hidden md:table-cell">
                   {game.grounds.name}
                 </td>
