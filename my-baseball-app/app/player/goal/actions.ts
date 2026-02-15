@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import {
   aggregateBattingRows,
   aggregatePitchingRows,
+  type PitchingAggregate,
 } from "@/utils/statsAggregation";
 
 export async function fetchGoalsDivisions() {
@@ -197,13 +198,15 @@ export async function fetchPlayerYearlyStats(
   // 投球統計のプロパティに接頭辞を付けて衝突を避ける
   const prefixedPitchingStats: Record<string, any> = {};
   if ((pitchingDailyStats || []).length > 0) {
-    Object.keys(pitchingStats).forEach((key) => {
-      // team_id, player_id, year は共通なので接頭辞不要
-      if (key === "team_id" || key === "player_id" || key === "year") {
-        return;
-      }
-      prefixedPitchingStats[`pitch_${key}`] = pitchingStats[key];
-    });
+    (Object.keys(pitchingStats) as (keyof PitchingAggregate)[]).forEach(
+      (key) => {
+        // team_id, player_id, year は共通なので接頭辞不要
+        if (key === "team_id" || key === "player_id" || key === "year") {
+          return;
+        }
+        prefixedPitchingStats[`pitch_${key}`] = pitchingStats[key];
+      },
+    );
   }
 
   // 両方のデータをマージして返す

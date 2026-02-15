@@ -191,7 +191,7 @@ export default async function DashboardPage() {
           <div className="bg-white p-6 rounded-xl shadow-sm border">
             <p className="text-gray-500">チーム打率</p>
             <p className="text-3xl font-bold text-orange-600">
-              {formatRate(teamAvg.avg)}
+              {formatRate(teamAvg.avg ?? 0)}
             </p>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm border">
