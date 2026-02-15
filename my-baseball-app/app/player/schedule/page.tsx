@@ -3,6 +3,7 @@ import { Clock, MapPin, ChevronRight, CalendarCheck } from "lucide-react";
 import Link from "next/link";
 import PlayerMenu from "../components/PlayerMenu";
 import { redirect } from "next/navigation";
+import { aggregateBattingRows } from "@/utils/statsAggregation";
 
 type ScheduleStatus = "going" | "not_going" | "pending" | "unanswered";
 
@@ -76,15 +77,17 @@ export default async function AttendancePage() {
         .data
     : [];
 
-  const { data: attendanceStats } = await supabase
-    .from("mv_player_yearly_stats")
-    .select("attendance_pct")
+  const currentYear = new Date().getFullYear();
+  const { data: attendanceSourceRows } = await supabase
+    .from("mv_player_daily_stats")
+    .select("game_id, attended_game")
     .eq("player_id", player.id)
     .eq("team_id", myTeamId)
-    .eq("season_year", new Date().getFullYear())
-    .maybeSingle();
+    .gte("game_date", `${currentYear}-01-01`)
+    .lte("game_date", `${currentYear}-12-31`);
 
-  const attendanceRateRaw = attendanceStats?.attendance_pct ?? 0;
+  const attendanceStats = aggregateBattingRows(attendanceSourceRows || []);
+  const attendanceRateRaw = attendanceStats.attendance_pct ?? 0;
   const attendanceRate =
     attendanceRateRaw <= 1 ? attendanceRateRaw * 100 : attendanceRateRaw;
 

@@ -5,10 +5,12 @@ import { saveLeague, deleteLeague, updateSortOrder } from "./actions";
 
 export default async function LeaguesPage() {
   const supabase = await createClient();
+  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
 
   const { data: leagues } = await supabase
     .from("leagues")
     .select("*")
+    .eq("team_id", myTeamId)
     .order("sort", { ascending: true });
 
   return (

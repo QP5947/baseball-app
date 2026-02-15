@@ -8,6 +8,13 @@ import { Save } from "lucide-react";
 // 既存データがある場合は initialData として受け取る
 export default function PlayerForm({ initialData }: { initialData?: any }) {
   const [text, setText] = useState(initialData?.position || "");
+  const [previewImages, setPreviewImages] = useState<{
+    list_image?: string;
+    detail_image?: string;
+  }>({
+    list_image: initialData?.list_image_url,
+    detail_image: initialData?.detail_image_url,
+  });
   const suggestions = [
     "投",
     "捕",
@@ -36,8 +43,29 @@ export default function PlayerForm({ initialData }: { initialData?: any }) {
     }
   };
 
+  const handleFileChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    fieldName: "list_image" | "detail_image",
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImages((prev) => ({
+          ...prev,
+          [fieldName]: reader.result as string,
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
-    <form action={savePlayer} className="space-y-6">
+    <form
+      action={savePlayer}
+      encType="multipart/form-data"
+      className="space-y-6"
+    >
       {/* 選手ID */}
       {initialData?.id && (
         <input type="hidden" name="id" value={initialData.id} />
@@ -48,7 +76,6 @@ export default function PlayerForm({ initialData }: { initialData?: any }) {
         <label className="block font-medium text-gray-700 mb-1">背番号</label>
         <input
           name="no"
-          type="number"
           className="w-1/3 p-3 border rounded-lg focus:ring-2 border-gray-400 focus:ring-blue-500 outline-none text-gray-800 placeholder-gray-400"
           placeholder="00"
           defaultValue={initialData?.no || ""}
@@ -135,6 +162,52 @@ export default function PlayerForm({ initialData }: { initialData?: any }) {
           name="comment"
           className="w-full h-30 p-3 border rounded-lg focus:ring-2 border-gray-400 focus:ring-blue-500 outline-none transition text-gray-800 placeholder-gray-400"
           defaultValue={initialData?.comment || ""}
+        />
+      </div>
+
+      {/* 写真（選手一覧用） */}
+      <div>
+        <label className="block font-medium text-gray-700 mb-1">
+          写真（選手一覧に表示）
+        </label>
+        {previewImages.list_image && (
+          <div className="mb-3">
+            <img
+              src={previewImages.list_image}
+              alt="選手一覧用写真プレビュー"
+              className="max-h-56 max-w-full object-cover rounded-lg border"
+            />
+          </div>
+        )}
+        <input
+          type="file"
+          name="list_image_file"
+          accept="image/*"
+          onChange={(e) => handleFileChange(e, "list_image")}
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+      </div>
+
+      {/* 写真（選手詳細用） */}
+      <div>
+        <label className="block font-medium text-gray-700 mb-1">
+          写真（選手詳細に表示）
+        </label>
+        {previewImages.detail_image && (
+          <div className="mb-3">
+            <img
+              src={previewImages.detail_image}
+              alt="選手詳細用写真プレビュー"
+              className="max-h-56 max-w-full object-cover rounded-lg border"
+            />
+          </div>
+        )}
+        <input
+          type="file"
+          name="detail_image_file"
+          accept="image/*"
+          onChange={(e) => handleFileChange(e, "detail_image")}
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
         />
       </div>
 

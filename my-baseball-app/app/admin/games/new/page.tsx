@@ -6,22 +6,26 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function NewGamePage() {
   const supabase = await createClient();
+  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
 
   // マスタを取得
   const [leagues, grounds, vsteams] = await Promise.all([
     supabase
       .from("leagues")
       .select("id, name")
+      .eq("team_id", myTeamId)
       .eq("show_flg", true)
       .order("sort"),
     supabase
       .from("grounds")
       .select("id, name")
+      .eq("team_id", myTeamId)
       .eq("show_flg", true)
       .order("sort"),
     supabase
       .from("vsteams")
       .select("id, name")
+      .eq("team_id", myTeamId)
       .eq("show_flg", true)
       .order("sort"),
   ]);

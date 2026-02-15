@@ -14,10 +14,10 @@ import { revalidatePath } from "next/cache";
 export async function getPreviousOrderAction(currentGameId: string) {
   const supabase = await createClient();
 
-  // 「今の試合」の日時を取得する
+  // 「今の試合」の日時とteam_idを取得する
   const { data: currentGame } = await supabase
     .from("games")
-    .select("start_datetime")
+    .select("start_datetime, team_id")
     .eq("id", currentGameId)
     .single();
 
@@ -38,6 +38,7 @@ export async function getPreviousOrderAction(currentGameId: string) {
       )
     `,
     )
+    .eq("team_id", currentGame.team_id)
     .lt("start_datetime", currentGame.start_datetime)
     .in("status", [0, 1, 2, 3])
     .order("start_datetime", { ascending: false })

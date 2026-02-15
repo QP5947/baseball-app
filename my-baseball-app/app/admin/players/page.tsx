@@ -4,14 +4,29 @@ import { Check, Edit, Plus } from "lucide-react";
 import Link from "next/link";
 import AdminMenu from "../components/AdminMenu";
 import DeleteButton from "../components/DeleteButton";
+import ImageHoverPreview from "./components/ImageHoverPreview";
 
 export default async function PlayersPage() {
   const supabase = await createClient();
+  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
   const { data: players } = await supabase
     .from("players")
     .select("*")
+    .eq("team_id", myTeamId)
     .order("sort", { ascending: true, nullsFirst: false })
     .order("no", { ascending: true, nullsFirst: false });
+
+  const playersWithImageUrls = (players || []).map((player) => ({
+    ...player,
+    list_image_url: player.list_image
+      ? supabase.storage.from("player_images").getPublicUrl(player.list_image)
+          .data.publicUrl
+      : "",
+    detail_image_url: player.detail_image
+      ? supabase.storage.from("player_images").getPublicUrl(player.detail_image)
+          .data.publicUrl
+      : "",
+  }));
 
   const handMap: Record<string, string> = {
     L: "左",
@@ -44,6 +59,12 @@ export default async function PlayersPage() {
                 投 / 打
               </th>
               <th className="p-4 font-semibold text-gray-600 hidden md:table-cell">
+                一覧画像
+              </th>
+              <th className="p-4 font-semibold text-gray-600 hidden md:table-cell">
+                詳細画像
+              </th>
+              <th className="p-4 font-semibold text-gray-600 hidden md:table-cell">
                 コメント
               </th>
               <th className="p-4 font-semibold text-gray-600 hidden md:table-cell">
@@ -59,66 +80,91 @@ export default async function PlayersPage() {
             </tr>
           </thead>
           <tbody>
-            {players?.map((player) => (
-              <tr
-                key={player.id}
-                className="border-b hover:bg-gray-50 transition"
-              >
-                <td className="p-4 font-mono text-blue-600 font-bold">
-                  {player.no || "-"}
-                </td>
-                <td className="p-4 font-medium text-gray-800 whitespace-nowrap">
-                  {player.name}
-                </td>
-                <td className="p-4 text-gray-600 hidden md:table-cell">
-                  {player.position}
-                </td>
-                <td className="p-4 text-gray-600 hidden md:table-cell whitespace-nowrap text-center">
-                  {handMap[player.throw_hand]} / {handMap[player.batting_hand]}
-                </td>
-                <td className="p-4 text-gray-600 hidden md:table-cell max-w-100">
-                  <div className="line-clamp-3 whitespace-pre-wrap">
-                    {player.comment}
-                  </div>
-                </td>
-                <td className="p-4 text-gray-600 hidden md:table-cell whitespace-pre">
-                  {[
-                    player.is_player && "選手",
-                    player.is_admin && "管理者",
-                    player.is_manager && "マネージャー",
-                  ]
-                    .filter(Boolean)
-                    .join("\n")}
-                </td>
-                <td className="p-4 text-gray-600 hidden md:table-cell text-center">
-                  {player.show_flg ? <Check className="inline-block" /> : ""}
-                </td>
-                <td className="p-4 text-gray-600 hidden md:table-cell text-center">
-                  {player.is_player || player.is_admin || player.is_manager
-                    ? player.invite_code
-                    : ""}
-                </td>
-                <td className="p-4 text-center">
-                  <div className="flex items-center justify-center gap-3">
-                    <Link
-                      href={`/admin/players/${player.id}`}
-                      className="text-gray-400 hover:text-blue-600"
-                    >
-                      <Edit size={18} />
-                    </Link>
-                    {player.user_id ? (
-                      ""
-                    ) : (
-                      <DeleteButton
-                        id={player.id}
-                        deleteName={player.name}
-                        action={deletePlayer}
+            {playersWithImageUrls.map((player) => {
+              return (
+                <tr
+                  key={player.id}
+                  className="border-b hover:bg-gray-50 transition"
+                >
+                  <td className="p-4 font-mono text-blue-600 font-bold">
+                    {player.no || "-"}
+                  </td>
+                  <td className="p-4 font-medium text-gray-800 whitespace-nowrap">
+                    {player.name}
+                  </td>
+                  <td className="p-4 text-gray-600 hidden md:table-cell">
+                    {player.position}
+                  </td>
+                  <td className="p-4 text-gray-600 hidden md:table-cell whitespace-nowrap text-center">
+                    {handMap[player.throw_hand]} /{" "}
+                    {handMap[player.batting_hand]}
+                  </td>
+                  <td className="p-4 text-gray-600 hidden md:table-cell text-center">
+                    {player.list_image_url ? (
+                      <ImageHoverPreview
+                        imageUrl={player.list_image_url}
+                        alt={`${player.name} 一覧画像`}
+                        previewAlt={`${player.name} 一覧画像プレビュー`}
                       />
+                    ) : (
+                      "-"
                     )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="p-4 text-gray-600 hidden md:table-cell text-center">
+                    {player.detail_image_url ? (
+                      <ImageHoverPreview
+                        imageUrl={player.detail_image_url}
+                        alt={`${player.name} 詳細画像`}
+                        previewAlt={`${player.name} 詳細画像プレビュー`}
+                      />
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td className="p-4 text-gray-600 hidden md:table-cell max-w-100">
+                    <div className="line-clamp-3 whitespace-pre-wrap">
+                      {player.comment}
+                    </div>
+                  </td>
+                  <td className="p-4 text-gray-600 hidden md:table-cell whitespace-pre">
+                    {[
+                      player.is_player && "選手",
+                      player.is_admin && "管理者",
+                      player.is_manager && "マネージャー",
+                    ]
+                      .filter(Boolean)
+                      .join("\n")}
+                  </td>
+                  <td className="p-4 text-gray-600 hidden md:table-cell text-center">
+                    {player.show_flg ? <Check className="inline-block" /> : ""}
+                  </td>
+                  <td className="p-4 text-gray-600 hidden md:table-cell text-center">
+                    {player.is_player || player.is_admin || player.is_manager
+                      ? player.invite_code
+                      : ""}
+                  </td>
+                  <td className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-3">
+                      <Link
+                        href={`/admin/players/${player.id}`}
+                        className="text-gray-400 hover:text-blue-600"
+                      >
+                        <Edit size={18} />
+                      </Link>
+                      {player.user_id ? (
+                        ""
+                      ) : (
+                        <DeleteButton
+                          id={player.id}
+                          deleteName={player.name}
+                          action={deletePlayer}
+                        />
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

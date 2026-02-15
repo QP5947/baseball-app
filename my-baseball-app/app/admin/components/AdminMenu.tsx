@@ -9,6 +9,7 @@ import {
   MapPin,
   Menu,
   ReceiptText,
+  Settings,
   Swords,
   Trophy,
   UserPlus,
@@ -86,12 +87,11 @@ export default function AdminMenu({ children }: { children: React.ReactNode }) {
       href: "/admin/vsteams",
       icon: <Flag size={20} />,
     },
-    /*    {
+    {
       title: "システム設定",
       href: "/admin/settings",
       icon: <Settings size={20} />,
     },
-    */
   ];
   const pathname = usePathname();
 

@@ -1,15 +1,29 @@
 import { createClient } from "@/lib/supabase/server";
 import AdminLayout from "../components/AdminMenu";
-import VsTeamList from "../components/MasterList";
+import VsTeamList from "./components/VsTeamList";
 import { saveVsTeam, deleteVsTeam, updateSortOrder } from "./actions";
 
 export default async function VsTeamsPage() {
   const supabase = await createClient();
+  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
 
   const { data: VsTeams } = await supabase
     .from("vsteams")
     .select("*")
+    .eq("team_id", myTeamId)
     .order("sort", { ascending: true });
+
+  // アイコンのPublic URLを生成
+  const iconUrls: { [key: string]: string } = {};
+  if (VsTeams) {
+    VsTeams.forEach((vsTeam) => {
+      if (vsTeam.icon) {
+        iconUrls[vsTeam.id] = supabase.storage
+          .from("vsteams")
+          .getPublicUrl(vsTeam.icon).data.publicUrl;
+      }
+    });
+  }
 
   return (
     <AdminLayout>
@@ -23,6 +37,7 @@ export default async function VsTeamsPage() {
 
         <VsTeamList
           masters={VsTeams || []}
+          iconUrls={iconUrls}
           upsertaction={saveVsTeam}
           deleteAction={deleteVsTeam}
           updateSortAction={updateSortOrder}

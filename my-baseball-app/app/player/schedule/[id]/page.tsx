@@ -55,6 +55,7 @@ export default async function AttendanceDetailPage({
   const { data: game } = await supabase
     .from("games")
     .select("*,leagues(name),grounds(name),vsteams(name)")
+    .eq("team_id", player.team_id)
     .eq("id", id)
     .maybeSingle();
 
@@ -66,6 +67,7 @@ export default async function AttendanceDetailPage({
   const { data: schedules } = await supabase
     .from("attendance")
     .select("*")
+    .eq("team_id", player.team_id)
     .eq("game_id", id);
 
   // プレイヤー一覧を取得（is_player or is_manager = true）

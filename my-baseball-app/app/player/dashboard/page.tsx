@@ -1,6 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import PlayerDashboard from "./components/PlayerDashboard";
 import { redirect } from "next/navigation";
+import {
+  aggregateBattingRows,
+  aggregatePitchingRows,
+  type PitchingAggregate,
+} from "@/utils/statsAggregation";
 
 export default async function PlayerDashboardPage() {
   const supabase = await createClient();
@@ -29,6 +34,7 @@ export default async function PlayerDashboardPage() {
   const { data: nextGame } = await supabase
     .from("games")
     .select("*,leagues (name),grounds(name),vsteams(name)")
+    .eq("team_id", myTeamId)
     .gt("start_datetime", new Date().toISOString())
     .order("start_datetime", { ascending: true })
     .limit(1)
@@ -38,6 +44,7 @@ export default async function PlayerDashboardPage() {
   const { data: nextAttendance } = await supabase
     .from("attendance")
     .select("*")
+    .eq("team_id", myTeamId)
     .eq("game_id", nextGame?.id)
     .eq("player_id", player.id)
     .limit(1)
@@ -78,33 +85,37 @@ export default async function PlayerDashboardPage() {
     .order("goal_group_no", { ascending: true })
     .order("no", { ascending: true });
 
-  // 打撃統計を取得
-  const { data: battingStats } = await supabase
-    .from("mv_player_yearly_stats")
+  // 打撃統計を取得（daily MVをフロント集計）
+  const { data: battingDailyStats } = await supabase
+    .from("mv_player_daily_stats")
     .select("*")
     .eq("team_id", myTeamId)
     .eq("player_id", player.id)
-    .eq("season_year", currentYear)
-    .maybeSingle();
+    .gte("game_date", `${currentYear}-01-01`)
+    .lte("game_date", `${currentYear}-12-31`);
 
-  // 投球統計を取得
-  const { data: pitchingStats } = await supabase
-    .from("mv_player_yearly_pitching_stats")
+  // 投球統計を取得（daily MVをフロント集計）
+  const { data: pitchingDailyStats } = await supabase
+    .from("mv_player_daily_pitching_stats")
     .select("*")
     .eq("team_id", myTeamId)
     .eq("player_id", player.id)
-    .eq("year", currentYear)
-    .maybeSingle();
+    .gte("game_date", `${currentYear}-01-01`)
+    .lte("game_date", `${currentYear}-12-31`);
+
+  const battingStats = aggregateBattingRows(battingDailyStats || []);
+  const pitchingStats = aggregatePitchingRows(pitchingDailyStats || []);
 
   // 投球統計のプロパティに接頭辞を付けて衝突を避ける
   const prefixedPitchingStats: Record<string, any> = {};
-  if (pitchingStats) {
+  if ((pitchingDailyStats || []).length > 0) {
     Object.keys(pitchingStats).forEach((key) => {
+      const typedKey = key as keyof PitchingAggregate;
       // team_id, player_id, year は共通なので接頭辞不要
       if (key === "team_id" || key === "player_id" || key === "year") {
         return;
       }
-      prefixedPitchingStats[`pitch_${key}`] = pitchingStats[key];
+      prefixedPitchingStats[`pitch_${key}`] = pitchingStats[typedKey];
     });
   }
 

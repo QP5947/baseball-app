@@ -15,9 +15,11 @@ export default async function EditPastPlayerPage({
   const { year } = await searchParams;
 
   const supabase = await createClient();
+  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
   const { data: pastPlayer } = await supabase
     .from("past_players")
     .select("*")
+    .eq("team_id", myTeamId)
     .eq("year", year)
     .eq("player_id", id)
     .single();

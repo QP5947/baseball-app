@@ -8,9 +8,8 @@ export async function saveGround(formData: FormData) {
   const supabase = await createClient();
 
   // ログイン者のチームIDを取得
-  const { data: myTeamId, error: rpcError } = await supabase.rpc(
-    "get_my_team_id"
-  );
+  const { data: myTeamId, error: rpcError } =
+    await supabase.rpc("get_my_team_id");
   if (rpcError || !myTeamId) {
     console.error("チームIDの取得に失敗しました:", rpcError);
     return;
@@ -22,6 +21,7 @@ export async function saveGround(formData: FormData) {
     const { data: maxSortData } = await supabase
       .from("grounds")
       .select("sort")
+      .eq("team_id", myTeamId)
       .order("sort", { ascending: true })
       .limit(1)
       .single();
@@ -70,7 +70,7 @@ export async function updateSortOrder(ids: string[]) {
   // 各IDに対して、現在の配列のインデックスを 'sort' 値として更新
   // Promise.all で並列実行して高速化します
   const updates = ids.map((id, index) =>
-    supabase.from("grounds").update({ sort: index }).eq("id", id)
+    supabase.from("grounds").update({ sort: index }).eq("id", id),
   );
 
   const results = await Promise.all(updates);

@@ -28,6 +28,7 @@ export async function getBattingStats(year: number) {
   const { data: battingStats, error } = await supabase
     .from("mv_player_daily_stats")
     .select("*")
+    .eq("team_id", player.team_id)
     .eq("player_id", player.id)
     .gte("game_date", `${year}-01-01`)
     .lte("game_date", `${year}-12-31`)
@@ -66,6 +67,7 @@ export async function getPitchingStats(year: number) {
   const { data: pitchingStats, error } = await supabase
     .from("mv_player_daily_pitching_stats")
     .select("*")
+    .eq("team_id", player.team_id)
     .eq("player_id", player.id)
     .gte("game_date", `${year}-01-01`)
     .lte("game_date", `${year}-12-31`)

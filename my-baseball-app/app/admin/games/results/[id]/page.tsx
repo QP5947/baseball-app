@@ -16,9 +16,11 @@ export default async function EditGameResultPage({
 
   // 試合データを取得
   const supabase = await createClient();
+  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
   const { data: game } = await supabase
     .from("games")
     .select("*,leagues (name),grounds(name),vsteams(name)")
+    .eq("team_id", myTeamId)
     .eq("id", id)
     .single();
 
@@ -29,6 +31,7 @@ export default async function EditGameResultPage({
   const { data: playerData } = await supabase
     .from("players")
     .select("id, no, name")
+    .eq("team_id", myTeamId)
     .order("sort");
 
   if (playerData) {

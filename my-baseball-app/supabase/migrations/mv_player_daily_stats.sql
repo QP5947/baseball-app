@@ -1,13 +1,22 @@
 -- 選手の日別打撃成績マテリアライズドビュー
 DROP MATERIALIZED VIEW IF EXISTS mv_player_daily_stats;
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_player_daily_stats AS
-WITH base_stats AS (
+WITH batting_lines AS (
   SELECT 
     d.team_id,
     d.player_id,
     g.id as game_id,
     DATE(g.start_datetime) as game_date,
     g.start_datetime,
+    EXTRACT(YEAR FROM g.start_datetime)::integer AS season_year,
+    g.league_id,
+    l.name AS league_name,
+    g.ground_id,
+    gr.name AS ground_name,
+    g.vsteam_id,
+    vs.name AS vsteam_name,
+    g.status AS game_status,
+    g.sum_flg,
     
     -- 打席数
     COUNT(*) AS pa,
@@ -51,12 +60,92 @@ WITH base_stats AS (
   FROM batting_result_details d
   JOIN at_bat_results r ON d.at_bat_result_no = r.no
   JOIN games g ON d.game_id = g.id
+  INNER JOIN players p ON p.team_id = d.team_id AND p.id = d.player_id
+  LEFT JOIN leagues l ON l.id = g.league_id
+  LEFT JOIN grounds gr ON gr.id = g.ground_id
+  LEFT JOIN vsteams vs ON vs.id = g.vsteam_id
+  WHERE g.sum_flg = true
+    AND g.status NOT IN (0, 6)
   GROUP BY 
     d.team_id,
     d.player_id,
     g.id,
     DATE(g.start_datetime),
-    g.start_datetime
+    g.start_datetime,
+    EXTRACT(YEAR FROM g.start_datetime),
+    g.league_id,
+    l.name,
+    g.ground_id,
+    gr.name,
+    g.vsteam_id,
+    vs.name,
+    g.status,
+    g.sum_flg
+),
+running_stats AS (
+  SELECT
+    b.team_id,
+    b.player_id,
+    b.game_id,
+    COALESCE(SUM(b.steal), 0) AS sb,
+    COALESCE(SUM(b.steal_miss), 0) AS cs,
+    COALESCE(SUM(b.run), 0) AS runs,
+    COALESCE(SUM(b.df_error), 0) AS errors
+  FROM batting_results b
+  GROUP BY b.team_id, b.player_id, b.game_id
+),
+attendance_stats AS (
+  SELECT
+    a.team_id,
+    a.player_id,
+    a.game_id,
+    MAX(CASE WHEN a.real_attendance_no = 1 THEN 1 ELSE 0 END) AS attended_game
+  FROM attendance a
+  GROUP BY a.team_id, a.player_id, a.game_id
+),
+base_stats AS (
+  SELECT
+    bl.team_id,
+    bl.player_id,
+    bl.game_id,
+    bl.game_date,
+    bl.start_datetime,
+    bl.season_year,
+    bl.league_id,
+    bl.league_name,
+    bl.ground_id,
+    bl.ground_name,
+    bl.vsteam_id,
+    bl.vsteam_name,
+    bl.game_status,
+    bl.sum_flg,
+    bl.pa,
+    bl.ab,
+    bl.h,
+    bl.d2,
+    bl.t3,
+    bl.hr,
+    bl.tb,
+    bl.bb_hbp,
+    bl.sf,
+    bl.sh,
+    bl.so,
+    bl.rbi,
+    bl.total_outs,
+    COALESCE(rs.sb, 0) AS sb,
+    COALESCE(rs.cs, 0) AS cs,
+    COALESCE(rs.runs, 0) AS runs,
+    COALESCE(rs.errors, 0) AS errors,
+    COALESCE(att.attended_game, 0) AS attended_game
+  FROM batting_lines bl
+  LEFT JOIN running_stats rs
+    ON rs.team_id = bl.team_id
+   AND rs.player_id = bl.player_id
+   AND rs.game_id = bl.game_id
+  LEFT JOIN attendance_stats att
+    ON att.team_id = bl.team_id
+   AND att.player_id = bl.player_id
+   AND att.game_id = bl.game_id
 )
 SELECT 
   team_id,
@@ -64,6 +153,15 @@ SELECT
   game_id,
   game_date,
   start_datetime,
+  season_year,
+  league_id,
+  league_name,
+  ground_id,
+  ground_name,
+  vsteam_id,
+  vsteam_name,
+  game_status,
+  sum_flg,
   pa,
   ab,
   h,
@@ -77,6 +175,11 @@ SELECT
   so,
   rbi,
   total_outs,
+  sb,
+  cs,
+  runs,
+  errors,
+  attended_game,
   -- 累計値
   SUM(pa) OVER w AS cum_pa,
   SUM(ab) OVER w AS cum_ab,
@@ -109,6 +212,14 @@ CREATE INDEX IF NOT EXISTS idx_mv_player_daily_stats_team
   ON mv_player_daily_stats(team_id, game_date DESC);
 CREATE INDEX IF NOT EXISTS idx_mv_player_daily_stats_team_player 
   ON mv_player_daily_stats(team_id, player_id, game_date DESC);
+CREATE INDEX IF NOT EXISTS idx_mv_player_daily_stats_team_year
+  ON mv_player_daily_stats(team_id, season_year, game_date DESC);
+CREATE INDEX IF NOT EXISTS idx_mv_player_daily_stats_team_league
+  ON mv_player_daily_stats(team_id, league_id, game_date DESC);
+CREATE INDEX IF NOT EXISTS idx_mv_player_daily_stats_team_ground
+  ON mv_player_daily_stats(team_id, ground_id, game_date DESC);
+CREATE INDEX IF NOT EXISTS idx_mv_player_daily_stats_team_vsteam
+  ON mv_player_daily_stats(team_id, vsteam_id, game_date DESC);
 
 -- マテリアライズドビューを更新する関数
 CREATE OR REPLACE FUNCTION refresh_player_daily_stats()

@@ -72,9 +72,8 @@ export default function TeamProfileFormRow({
             <label className="block font-medium text-gray-700 mb-1">
               回答{idx}
             </label>
-            <input
+            <textarea
               name="a"
-              type="text"
               className="w-full p-3 border rounded-lg focus:ring-2 border-gray-400 focus:ring-blue-500 outline-none transition text-gray-800 placeholder-gray-400"
               defaultValue={profile?.a || ""}
             />

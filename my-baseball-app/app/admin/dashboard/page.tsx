@@ -3,6 +3,7 @@ import Link from "next/link";
 import AdminMenu from "../components/AdminMenu";
 import { formatRate } from "../../utils/rateFormat";
 import { Clock, MapPin } from "lucide-react";
+import { aggregateBattingRows } from "@/utils/statsAggregation";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -23,6 +24,7 @@ export default async function DashboardPage() {
   const { data: todayGame } = await supabase
     .from("games")
     .select("*,leagues (name),grounds(name),vsteams(name)")
+    .eq("team_id", myTeamId)
     .gte("start_datetime", todayStartStr)
     .lte("start_datetime", todayEndStr)
     .or("status.is.null,status.eq.0")
@@ -34,12 +36,14 @@ export default async function DashboardPage() {
   const { count: playerCount } = await supabase
     .from("players")
     .select("*", { count: "exact", head: true })
+    .eq("team_id", myTeamId)
     .or("is_player.eq.true,is_admin.eq.true,is_manager.eq.true");
 
   // 勝ち数
   const { count: winCount } = await supabase
     .from("games")
     .select("*", { count: "exact", head: true })
+    .eq("team_id", myTeamId)
     .eq("sum_flg", true)
     .in("status", [1, 4]);
 
@@ -47,20 +51,22 @@ export default async function DashboardPage() {
   const { count: loseCount } = await supabase
     .from("games")
     .select("*", { count: "exact", head: true })
+    .eq("team_id", myTeamId)
     .eq("sum_flg", true)
     .in("status", [2, 5]);
 
-  // チーム打率
-  const { data: teamAvg } = await supabase
-    .from("mv_team_total_stats")
-    .select("avg")
-    .eq("team_id", myTeamId)
-    .maybeSingle();
+  // チーム打率（daily MVをフロント集計）
+  const { data: teamDailyStats } = await supabase
+    .from("mv_player_daily_stats")
+    .select("game_id, ab, h")
+    .eq("team_id", myTeamId);
+  const teamAvg = aggregateBattingRows(teamDailyStats || []);
 
   // 次の試合
   const { data: nextGame } = await supabase
     .from("games")
     .select("*,leagues (name),grounds(name),vsteams(name)")
+    .eq("team_id", myTeamId)
     .gt("start_datetime", now)
     .order("start_datetime", { ascending: true })
     .limit(1)
@@ -70,6 +76,7 @@ export default async function DashboardPage() {
   const { data: games } = await supabase
     .from("games")
     .select("*,leagues (name),grounds(name),vsteams(name)")
+    .eq("team_id", myTeamId)
     .lt("start_datetime", now)
     .order("start_datetime", { ascending: false })
     .limit(5);
@@ -184,7 +191,7 @@ export default async function DashboardPage() {
           <div className="bg-white p-6 rounded-xl shadow-sm border">
             <p className="text-gray-500">チーム打率</p>
             <p className="text-3xl font-bold text-orange-600">
-              {formatRate(teamAvg?.avg)}
+              {formatRate(teamAvg.avg)}
             </p>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm border">

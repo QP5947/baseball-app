@@ -2,6 +2,10 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import {
+  aggregateBattingRows,
+  aggregatePitchingRows,
+} from "@/utils/statsAggregation";
 
 export async function fetchGoalsDivisions() {
   const supabase = await createClient();
@@ -152,9 +156,7 @@ export async function getAvailableYears(playerId: string, teamId: string) {
 
   // start_datetimeから年を抽出し、重複を削除してユニークな年のリストを作成
   const uniqueYears = [
-    ...new Set(
-      games.map((g) => new Date(g.start_datetime).getFullYear()),
-    ),
+    ...new Set(games.map((g) => new Date(g.start_datetime).getFullYear())),
   ].sort((a, b) => b - a);
 
   return uniqueYears;
@@ -167,31 +169,34 @@ export async function fetchPlayerYearlyStats(
 ) {
   const supabase = await createClient();
 
-  // 打撃統計を取得
-  const { data: battingStats, error: battingError } = await supabase
-    .from("mv_player_yearly_stats")
+  // 打撃統計を取得（daily MVをフロント集計）
+  const { data: battingDailyStats, error: battingError } = await supabase
+    .from("mv_player_daily_stats")
     .select("*")
     .eq("player_id", playerId)
     .eq("team_id", teamId)
-    .eq("season_year", year)
-    .maybeSingle();
+    .gte("game_date", `${year}-01-01`)
+    .lte("game_date", `${year}-12-31`);
 
   if (battingError) throw new Error(battingError.message);
 
-  // 投球統計を取得
-  const { data: pitchingStats, error: pitchingError } = await supabase
-    .from("mv_player_yearly_pitching_stats")
+  // 投球統計を取得（daily MVをフロント集計）
+  const { data: pitchingDailyStats, error: pitchingError } = await supabase
+    .from("mv_player_daily_pitching_stats")
     .select("*")
     .eq("player_id", playerId)
     .eq("team_id", teamId)
-    .eq("year", year)
-    .maybeSingle();
+    .gte("game_date", `${year}-01-01`)
+    .lte("game_date", `${year}-12-31`);
 
   if (pitchingError) throw new Error(pitchingError.message);
 
+  const battingStats = aggregateBattingRows(battingDailyStats || []);
+  const pitchingStats = aggregatePitchingRows(pitchingDailyStats || []);
+
   // 投球統計のプロパティに接頭辞を付けて衝突を避ける
   const prefixedPitchingStats: Record<string, any> = {};
-  if (pitchingStats) {
+  if ((pitchingDailyStats || []).length > 0) {
     Object.keys(pitchingStats).forEach((key) => {
       // team_id, player_id, year は共通なので接頭辞不要
       if (key === "team_id" || key === "player_id" || key === "year") {

@@ -5,10 +5,12 @@ import { saveGround, deleteGround, updateSortOrder } from "./actions";
 
 export default async function GroundsPage() {
   const supabase = await createClient();
+  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
 
   const { data: Grounds } = await supabase
     .from("grounds")
     .select("*")
+    .eq("team_id", myTeamId)
     .order("sort", { ascending: true });
 
   return (

@@ -1,3 +1,3 @@
 export default function TopPage() {
-  return "";
+  return "システムの紹介ページを作成予定";
 }

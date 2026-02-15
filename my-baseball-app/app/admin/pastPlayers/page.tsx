@@ -11,12 +11,14 @@ export default async function PastPlayersPage({
   searchParams: Promise<{ year?: number }>;
 }) {
   const supabase = await createClient();
+  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
   const currentYear = new Date().getFullYear() - 1;
 
   // 年度の最小値を取得
   const { data: minYearData } = await supabase
     .from("past_players")
     .select("year")
+    .eq("team_id", myTeamId)
     .order("year", { ascending: true })
     .limit(1)
     .single();
@@ -28,6 +30,7 @@ export default async function PastPlayersPage({
   const { data: pastPlayers } = await supabase
     .from("past_players")
     .select("*")
+    .eq("team_id", myTeamId)
     .eq("year", selectedYear)
     .order("sort", { ascending: true })
     .order("no", { ascending: true });

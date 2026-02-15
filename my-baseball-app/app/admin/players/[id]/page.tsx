@@ -12,13 +12,27 @@ export default async function EditPlayerPage({
   const { id } = await params;
 
   const supabase = await createClient();
+  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
   const { data: player } = await supabase
     .from("players")
     .select("*")
+    .eq("team_id", myTeamId)
     .eq("id", id)
     .single();
 
   if (!player) return <div>チームメイトが見つかりません</div>;
+
+  const playerWithImageUrls = {
+    ...player,
+    list_image_url: player.list_image
+      ? supabase.storage.from("player_images").getPublicUrl(player.list_image)
+          .data.publicUrl
+      : undefined,
+    detail_image_url: player.detail_image
+      ? supabase.storage.from("player_images").getPublicUrl(player.detail_image)
+          .data.publicUrl
+      : undefined,
+  };
 
   return (
     <AdminLayout>
@@ -36,7 +50,7 @@ export default async function EditPlayerPage({
           </h1>
         </div>
         <div className="bg-white p-8 rounded-2xl shadow-sm border">
-          <PlayerForm initialData={player} />
+          <PlayerForm initialData={playerWithImageUrls} />
         </div>
       </div>
     </AdminLayout>

@@ -7,9 +7,11 @@ import { deleteGame } from "./actions";
 
 export default async function GamersPage() {
   const supabase = await createClient();
+  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
   const { data: games } = await supabase
     .from("games")
     .select("*,leagues (name),grounds(name),vsteams(name)")
+    .eq("team_id", myTeamId)
     .is("status", null)
     .order("start_datetime", { ascending: true });
 

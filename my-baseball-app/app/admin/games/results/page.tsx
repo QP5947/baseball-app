@@ -19,6 +19,7 @@ export default async function GameResultsPage({
   searchParams: Promise<{ year?: number }>;
 }) {
   const supabase = await createClient();
+  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
 
   // 今日の日付を取得
   const today = new Date();
@@ -30,6 +31,7 @@ export default async function GameResultsPage({
   const { data: minYearData } = await supabase
     .from("games")
     .select("start_datetime")
+    .eq("team_id", myTeamId)
     .order("start_datetime", { ascending: true })
     .limit(1)
     .single();
@@ -51,6 +53,7 @@ export default async function GameResultsPage({
   const { data: games } = await supabase
     .from("games")
     .select("*,leagues (name),grounds(name),vsteams(name)")
+    .eq("team_id", myTeamId)
     .gte("start_datetime", range.start)
     .lte("start_datetime", range.end)
     .lte("start_datetime", todayISO)
@@ -106,7 +109,7 @@ export default async function GameResultsPage({
               </th>
               <th className="p-4 font-semibold text-gray-600">対戦相手</th>
               <th className="p-4 font-semibold text-gray-600">試合結果</th>
-              <th className="p-4 font-semibold text-gray-600 hidden md:table-cell">
+              <th className="p-4 font-semibold text-gray-600 hidden md:table-cell w-80">
                 試合コメント
               </th>
               <th className="p-4 font-semibold text-gray-600 hidden md:table-cell">
