@@ -10,7 +10,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { logout } from "../login/actions";
 
@@ -34,6 +34,7 @@ export default function PlayerMenu({
     { name: "個人成績分析", icon: BarChart3, href: "/player/stats" },
   ];
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const pathname = usePathname();
 
   return (
@@ -87,14 +88,23 @@ export default function PlayerMenu({
 
           <Link
             href=""
-            onClick={logout}
-            className="flex items-center gap-4 p-3 hover:bg-red-900/30 rounded-lg transition overflow-hidden whitespace-nowrap font-bold text-red-500"
+            onClick={(e) => {
+              e.preventDefault();
+              startTransition(() => {
+                logout();
+              });
+            }}
+            className="flex items-center gap-4 p-3 hover:bg-red-900/30 rounded-lg transition overflow-hidden whitespace-nowrap font-bold text-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
             title="ログアウト"
           >
             <span className="shrink-0">
-              <LogOut />
+              {isPending ? (
+                <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-red-500 border-t-transparent"></span>
+              ) : (
+                <LogOut />
+              )}
             </span>
-            ログアウト
+            {isPending ? "ログアウト中..." : "ログアウト"}
           </Link>
         </nav>
       </aside>

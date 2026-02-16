@@ -17,12 +17,13 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { logout } from "../login/actions";
 import { usePathname } from "next/navigation";
 
 export default function AdminMenu({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false); // 初期状態を「閉じる」に設定
+  const [isPending, startTransition] = useTransition();
 
   // 画面幅を監視して、スマホサイズになったら自動で閉じる
   useEffect(() => {
@@ -154,15 +155,24 @@ export default function AdminMenu({ children }: { children: React.ReactNode }) {
 
           <Link
             href=""
-            onClick={logout}
-            className="flex items-center gap-4 p-3 hover:bg-red-900/30 rounded-lg transition overflow-hidden whitespace-nowrap text-red-300"
+            onClick={(e) => {
+              e.preventDefault();
+              startTransition(() => {
+                logout();
+              });
+            }}
+            className="flex items-center gap-4 p-3 hover:bg-red-900/30 rounded-lg transition overflow-hidden whitespace-nowrap text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
             title="ログアウト"
           >
             <span className="shrink-0">
-              <LogOut />
+              {isPending ? (
+                <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-red-300 border-t-transparent"></span>
+              ) : (
+                <LogOut />
+              )}
             </span>
             <span className={`${!isOpen && "hidden"} transition-opacity`}>
-              ログアウト
+              {isPending ? "ログアウト中..." : "ログアウト"}
             </span>
           </Link>
         </nav>

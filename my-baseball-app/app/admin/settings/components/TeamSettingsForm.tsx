@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Save, X } from "lucide-react";
+import { LoadingIndicator } from "@/components/LoadingSkeleton";
 import { Database } from "@/types/supabase";
 import { fetchTeamSettings, updateTeamSettings } from "../actions";
 
@@ -115,7 +116,7 @@ export default function TeamSettingsForm() {
   };
 
   if (loading) {
-    return <div className="text-center py-8">読み込み中...</div>;
+    return <LoadingIndicator />;
   }
 
   if (!team) {

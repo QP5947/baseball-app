@@ -6,7 +6,10 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export async function login(formData: FormData) {
+export async function login(
+  _prevState: { error?: string },
+  formData: FormData,
+) {
   const supabase = await createClient();
 
   const data = {
@@ -19,7 +22,7 @@ export async function login(formData: FormData) {
 
   if (error || !authData.user) {
     console.error("Login error:", error?.message);
-    redirect("/error");
+    return { error: error?.message || "ログインに失敗しました" };
   }
 
   const { data: player } = await supabase

@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { InlineLoadingSpinner } from "@/components/LoadingSkeleton";
 import PlayerMenu from "../components/PlayerMenu";
 import {
   getBattingStats,
@@ -383,7 +384,7 @@ export default function PerformanceAnalysis() {
           <div className="h-64 md:h-100 w-full">
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
-                <div className="text-gray-400 font-bold">読み込み中...</div>
+                <InlineLoadingSpinner />
               </div>
             ) : mergedData.length === 0 ? (
               <div className="flex items-center justify-center h-full">

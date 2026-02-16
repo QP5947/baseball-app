@@ -1,6 +1,20 @@
+"use client";
+
+import { useActionState } from "react";
 import { login, signup } from "./actions";
 
+type LoginState = { error?: string };
+
 export default function LoginPage() {
+  const [loginState, loginAction, isLoginPending] = useActionState<
+    LoginState,
+    FormData
+  >(login, { error: undefined });
+  const [signupState, signupAction, isSignupPending] = useActionState<
+    LoginState,
+    FormData
+  >(signup, { error: undefined });
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-3 md:p-24 ">
       <div className="w-full max-w-md space-y-8 rounded-xl border p-10 shadow-md">
@@ -25,7 +39,8 @@ export default function LoginPage() {
                 name="email"
                 type="email"
                 required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none"
+                disabled={isLoginPending || isSignupPending}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500"
               />
             </div>
             <div>
@@ -40,24 +55,41 @@ export default function LoginPage() {
                 name="password"
                 type="password"
                 required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none"
+                disabled={isLoginPending || isSignupPending}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500"
               />
             </div>
           </div>
 
           <div className="flex flex-col gap-3">
             <button
-              formAction={login}
-              className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none"
+              formAction={loginAction}
+              disabled={isLoginPending || isSignupPending}
+              className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              ログイン
+              {isLoginPending ? (
+                <>
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                  処理中...
+                </>
+              ) : (
+                "ログイン"
+              )}
             </button>
             {/* 開発時のみ使用。本番では隠すか、特定のURLからのみに制限するのが一般的です */}
             <button
-              formAction={signup}
-              className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 focus:outline-none"
+              formAction={signupAction}
+              disabled={isLoginPending || isSignupPending}
+              className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              新規アカウント登録
+              {isSignupPending ? (
+                <>
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-700 border-t-transparent"></span>
+                  処理中...
+                </>
+              ) : (
+                "新規アカウント登録"
+              )}
             </button>
           </div>
         </form>

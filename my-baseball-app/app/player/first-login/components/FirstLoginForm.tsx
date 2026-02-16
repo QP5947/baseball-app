@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useActionState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { InlineLoadingSpinner } from "@/components/LoadingSkeleton";
 import { completeFirstLogin, FirstLoginState } from "../actions";
 
 type PlayerOption = {
@@ -13,10 +14,10 @@ type PlayerOption = {
 
 export default function FirstLoginForm() {
   const supabase = useMemo(() => createClient(), []);
-  const [state, formAction, isPending] = useActionState<FirstLoginState, FormData>(
-    completeFirstLogin,
-    {}
-  );
+  const [state, formAction, isPending] = useActionState<
+    FirstLoginState,
+    FormData
+  >(completeFirstLogin, {});
 
   const [teamId, setTeamId] = useState(state?.teamId || "");
   const [passphrase, setPassphrase] = useState(state?.passphrase || "");
@@ -159,31 +160,38 @@ export default function FirstLoginForm() {
           >
             自分の名前
           </label>
-          <select
-            id="player_id"
-            name="player_id"
-            value={selectedPlayerId}
-            onChange={(event) => setSelectedPlayerId(event.target.value)}
-            required
-            disabled={!teamId || loading || players.length === 0}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
-          >
-            <option value="">
-              {teamId && passphrase
-                ? loading
-                  ? "読み込み中..."
-                  : players.length === 0
-                    ? "候補がありません"
-                    : "選択してください"
-                : "チームIDと合言葉を入力してください"}
-            </option>
-            {players.map((player) => (
-              <option key={player.id} value={player.id}>
-                {player.no ? `#${player.no} ` : ""}
-                {player.name}
+          <div className="relative">
+            <select
+              id="player_id"
+              name="player_id"
+              value={selectedPlayerId}
+              onChange={(event) => setSelectedPlayerId(event.target.value)}
+              required
+              disabled={!teamId || loading || players.length === 0}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
+            >
+              <option value="">
+                {teamId && passphrase
+                  ? loading
+                    ? "読み込み中..."
+                    : players.length === 0
+                      ? "候補がありません"
+                      : "選択してください"
+                  : "チームIDと合言葉を入力してください"}
               </option>
-            ))}
-          </select>
+              {players.map((player) => (
+                <option key={player.id} value={player.id}>
+                  {player.no ? `#${player.no} ` : ""}
+                  {player.name}
+                </option>
+              ))}
+            </select>
+            {loading && teamId && passphrase && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <InlineLoadingSpinner />
+              </div>
+            )}
+          </div>
         </div>
 
         <div>

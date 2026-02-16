@@ -1,17 +1,38 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useEffect, useState } from "react";
+import { LoadingIndicator } from "@/components/LoadingSkeleton";
+import { createClient } from "@/lib/supabase/client";
 import AdminLayout from "../components/AdminMenu";
 import GroundList from "../components/MasterList";
 import { saveGround, deleteGround, updateSortOrder } from "./actions";
 
-export default async function GroundsPage() {
-  const supabase = await createClient();
-  const { data: myTeamId } = await supabase.rpc("get_my_team_id");
+export default function GroundsPage() {
+  const [grounds, setGrounds] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const { data: Grounds } = await supabase
-    .from("grounds")
-    .select("*")
-    .eq("team_id", myTeamId)
-    .order("sort", { ascending: true });
+  useEffect(() => {
+    loadGrounds();
+  }, []);
+
+  const loadGrounds = async () => {
+    try {
+      setLoading(true);
+      const supabase = createClient();
+      const { data: myTeamId } = await supabase.rpc("get_my_team_id");
+      const { data: groundsData } = await supabase
+        .from("grounds")
+        .select("*")
+        .eq("team_id", myTeamId)
+        .order("sort", { ascending: true });
+
+      setGrounds(groundsData || []);
+    } catch (error) {
+      console.error("Error loading grounds:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -23,12 +44,16 @@ export default async function GroundsPage() {
           </p>
         </div>
 
-        <GroundList
-          masters={Grounds || []}
-          upsertaction={saveGround}
-          deleteAction={deleteGround}
-          updateSortAction={updateSortOrder}
-        />
+        {loading ? (
+          <LoadingIndicator />
+        ) : (
+          <GroundList
+            masters={grounds}
+            upsertaction={saveGround}
+            deleteAction={deleteGround}
+            updateSortAction={updateSortOrder}
+          />
+        )}
       </div>
     </AdminLayout>
   );
