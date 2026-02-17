@@ -1,10 +1,14 @@
 "use server";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+
+export type ActionResult = {
+  success: boolean;
+  message: string;
+};
 
 // 新規
-export async function saveVsTeam(formData: FormData) {
+export async function saveVsTeam(formData: FormData): Promise<ActionResult> {
   const supabase = await createClient();
 
   // ログイン者のチームIDを取得
@@ -12,7 +16,10 @@ export async function saveVsTeam(formData: FormData) {
     await supabase.rpc("get_my_team_id");
   if (rpcError || !myTeamId) {
     console.error("チームIDの取得に失敗しました:", rpcError);
-    return;
+    return {
+      success: false,
+      message: "チームIDの取得に失敗しました",
+    };
   }
 
   // 新規登録時は、ソート順を最小にする
@@ -102,28 +109,46 @@ export async function saveVsTeam(formData: FormData) {
 
   if (error) {
     console.error("Error creating vsteam:", error.message);
-    return;
+    return {
+      success: false,
+      message: "チームの保存に失敗しました: " + error.message,
+    };
   }
 
   // 一覧画面のデータを最新の状態に更新（キャッシュクリア）
   revalidatePath("/admin/vsteams");
 
-  // 一覧画面へリダイレクト
-  redirect("/admin/vsteams");
+  return {
+    success: true,
+    message: "対戦相手を保存しました",
+  };
 }
 
 // 削除
-export async function deleteVsTeam(formData: FormData) {
+export async function deleteVsTeam(formData: FormData): Promise<ActionResult> {
   // TODO: 試合とかに使われてないかチェック or 削除してみてエラーで判断
   const id = formData.get("id");
   const supabase = await createClient();
-  await supabase.from("vsteams").delete().eq("id", id);
+
+  const { error } = await supabase.from("vsteams").delete().eq("id", id);
+
+  if (error) {
+    return {
+      success: false,
+      message: "対戦相手の削除に失敗しました",
+    };
+  }
 
   revalidatePath("/admin/vsteams");
+
+  return {
+    success: true,
+    message: "対戦相手を削除しました",
+  };
 }
 
 // ソート順を一括更新する
-export async function updateSortOrder(ids: string[]) {
+export async function updateSortOrder(ids: string[]): Promise<ActionResult> {
   const supabase = await createClient();
 
   // 各IDに対して、現在の配列のインデックスを 'sort' 値として更新
@@ -138,9 +163,16 @@ export async function updateSortOrder(ids: string[]) {
   const firstError = results.find((r) => r.error);
   if (firstError) {
     console.error("並び替えの保存に失敗しました:", firstError.error);
-    return;
+    return {
+      success: false,
+      message: "並び替えの保存に失敗しました",
+    };
   }
 
   revalidatePath("/admin/vsteams");
-  return;
+
+  return {
+    success: true,
+    message: "並び替えを保存しました",
+  };
 }

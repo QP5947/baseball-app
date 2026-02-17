@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import PlayerForm from "../components/PlayerForm";
+import DeletedItemRedirect from "../../components/DeletedItemRedirect";
 
 export default async function EditPlayerPage({
   params,
@@ -20,7 +21,13 @@ export default async function EditPlayerPage({
     .eq("id", id)
     .single();
 
-  if (!player) return <div>チームメイトが見つかりません</div>;
+  if (!player)
+    return (
+      <DeletedItemRedirect
+        message="チームメイトが見つかりません"
+        redirectPath="/admin/players"
+      />
+    );
 
   const playerWithImageUrls = {
     ...player,

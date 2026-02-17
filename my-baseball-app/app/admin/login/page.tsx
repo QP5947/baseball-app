@@ -1,19 +1,41 @@
 "use client";
 
-import { useActionState } from "react";
-import { login, signup } from "./actions";
-
-type LoginState = { error?: string };
+import { useActionState, useEffect } from "react";
+import toast from "react-hot-toast";
+import { login, signup, type LoginResult } from "./actions";
 
 export default function LoginPage() {
   const [loginState, loginAction, isLoginPending] = useActionState<
-    LoginState,
+    LoginResult | undefined,
     FormData
-  >(login, { error: undefined });
+  >(login, undefined);
+
   const [signupState, signupAction, isSignupPending] = useActionState<
-    LoginState,
+    LoginResult | undefined,
     FormData
-  >(signup, { error: undefined });
+  >(signup, undefined);
+
+  // ログインのトースト表示
+  useEffect(() => {
+    if (loginState) {
+      if (loginState.success) {
+        toast.success(loginState.message);
+      } else {
+        toast.error(loginState.message);
+      }
+    }
+  }, [loginState]);
+
+  // 新規登録のトースト表示
+  useEffect(() => {
+    if (signupState) {
+      if (signupState.success) {
+        toast.success(signupState.message);
+      } else {
+        toast.error(signupState.message);
+      }
+    }
+  }, [signupState]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-3 md:p-24 ">

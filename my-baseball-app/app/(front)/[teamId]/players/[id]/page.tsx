@@ -11,6 +11,7 @@ import {
   groupBattingByYear,
   groupPitchingByYear,
 } from "@/utils/statsAggregation";
+import ToastRedirect from "@/components/ToastRedirect";
 
 interface Props {
   params: Promise<{
@@ -31,7 +32,7 @@ export default async function PlayerDetailPage({ params }: Props) {
     .single();
 
   if (!team) {
-    return <div>チームが見つかりません</div>;
+    return <ToastRedirect message="チームが見つかりません" redirectPath="/" />;
   }
 
   const { data: player } = await supabase
@@ -43,7 +44,12 @@ export default async function PlayerDetailPage({ params }: Props) {
     .maybeSingle();
 
   if (!player) {
-    return <div>選手が見つかりません</div>;
+    return (
+      <ToastRedirect
+        message="選手が見つかりません"
+        redirectPath={`/${teamId}/players`}
+      />
+    );
   }
 
   const { data: battingDaily } = await supabase

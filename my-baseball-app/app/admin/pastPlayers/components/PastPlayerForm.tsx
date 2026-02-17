@@ -1,12 +1,30 @@
 "use client";
 import Link from "next/link";
-import { savePastPlayer } from "../actions";
+import { useActionState, useEffect } from "react";
+import toast from "react-hot-toast";
+import { savePastPlayer, type ActionResult } from "../actions";
 import { Save } from "lucide-react";
 
 // 既存データがある場合は initialData として受け取る
 export default function PastPlayerForm({ initialData }: { initialData?: any }) {
+  const [state, formAction, isPending] = useActionState<
+    ActionResult | undefined,
+    FormData
+  >(async (_prevState: ActionResult | undefined, formData: FormData) => {
+    return await savePastPlayer(formData);
+  }, undefined);
+
+  useEffect(() => {
+    if (state) {
+      if (state.success) {
+        toast.success(state.message);
+      } else {
+        toast.error(state.message);
+      }
+    }
+  }, [state]);
   return (
-    <form action={savePastPlayer} className="space-y-6">
+    <form action={formAction} className="space-y-6">
       {/* 年度、選手ID */}
       {initialData?.year && (
         <input type="hidden" name="year" value={initialData.year} />

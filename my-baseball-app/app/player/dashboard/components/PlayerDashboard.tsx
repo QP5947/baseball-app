@@ -133,12 +133,12 @@ export default function PlayerDashboard({
                       {formatted.format(new Date(nextGame.start_datetime))}～
                     </p>
                     <p className="text-lg font-bold text-gray-900 leading-tight mb-0.5">
-                      {nextGame.leagues.name}
-                      <br /> vs {nextGame.vsteams.name}
+                      {nextGame.leagues?.name}
+                      <br /> vs {nextGame.vsteams?.name || "未定"}
                     </p>
                     <p className="flex text-ls font-bold text-gray-400 leading-tight gap-1">
                       <MapPin size={18} />
-                      <span>{nextGame.grounds.name}</span>
+                      <span>{nextGame.grounds?.name || ""}</span>
                     </p>
                   </div>
                 </div>
@@ -400,13 +400,13 @@ export default function PlayerDashboard({
                 <p className="text-lg font-bold leading-tight">
                   {formatted.format(new Date(nextGame.start_datetime))}〜
                   <br />
-                  {nextGame.leagues.name}
+                  {nextGame.leagues?.name}
                   <br />
-                  vs {nextGame.vsteams.name}
+                  vs {nextGame.vsteams?.name || "未定"}
                 </p>
                 <div className="flex items-center gap-2 text-blue-100">
                   <MapPin size={15} />
-                  <span>{nextGame.grounds.name}</span>
+                  <span>{nextGame.grounds?.name || ""}</span>
                 </div>
               </div>
             )}

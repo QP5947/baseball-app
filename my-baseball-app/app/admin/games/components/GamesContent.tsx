@@ -88,23 +88,25 @@ export default function GamesContent() {
                     {formatted.format(new Date(game.start_datetime))}
                   </div>
                   <div className="font-bold text-gray-900 mt-1">
-                    {game.leagues.name} VS {game.vsteams.name}
+                    {game.leagues?.name || ""} VS{" "}
+                    {game.vsteams?.name || "（未選択）"}
                   </div>
                   <div className="text-sm text-gray-600 mt-1">
-                    球場: {game.grounds.name}
+                    球場: {game.grounds?.name || ""}
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Link
                     href={`games/${game.id}`}
-                    className="text-blue-600 hover:text-blue-800 p-2"
+                    className="text-gray-400 hover:text-blue-600 p-2"
                   >
                     <Edit size={18} />
                   </Link>
                   <DeleteButton
                     id={game.id}
-                    deleteName={`${game.leagues.name} vs ${game.vsteams.name}`}
+                    deleteName={`${game.leagues?.name || ""} vs ${game.vsteams?.name || "（未選択）"}`}
                     action={deleteGame}
+                    onSuccess={loadGames}
                   />
                 </div>
               </div>

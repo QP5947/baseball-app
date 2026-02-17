@@ -4,10 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+export type LoginResult = {
+  success: boolean;
+  message: string;
+};
+
 export async function login(
-  _prevState: { error?: string },
+  _prevState: LoginResult | undefined,
   formData: FormData,
-) {
+): Promise<LoginResult> {
   const supabase = await createClient();
 
   // フォームから入力値を取得
@@ -20,9 +25,11 @@ export async function login(
   const { error } = await supabase.auth.signInWithPassword(data);
 
   if (error) {
-    // 実際にはエラーメッセージをトースト等で出すのが望ましいです
     console.error("Login error:", error.message);
-    return { error: error.message || "ログインに失敗しました" };
+    return {
+      success: false,
+      message: error.message || "ログインに失敗しました",
+    };
   }
 
   // キャッシュを更新して管理画面などへリダイレクト
@@ -31,9 +38,9 @@ export async function login(
 }
 
 export async function signup(
-  _prevState: { error?: string },
+  _prevState: LoginResult | undefined,
   formData: FormData,
-) {
+): Promise<LoginResult> {
   const supabase = await createClient();
 
   const data = {
@@ -46,12 +53,17 @@ export async function signup(
 
   if (error) {
     console.error("Signup error:", error.message);
-    return { error: error.message || "アカウント登録に失敗しました" };
+    return {
+      success: false,
+      message: error.message || "アカウント登録に失敗しました",
+    };
   }
 
-  revalidatePath("/", "layout");
-  // 新規登録後は確認メールが飛ぶ設定の場合、案内ページなどへ飛ばすと親切です
-  redirect("/login?message=Check email to continue");
+  // 登録成功
+  return {
+    success: true,
+    message: "アカウント登録が完了しました。ログインしてください。",
+  };
 }
 
 export async function logout() {

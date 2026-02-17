@@ -1,24 +1,43 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { login, signup } from "@/player/login/actions";
-
-type SignupState = {
-  error?: string;
-};
+import { useActionState, useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import { login, signup, type LoginResult } from "@/player/login/actions";
 
 export default function PlayerLoginForm() {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [loginState, loginAction, isLoginPending] = useActionState<
-    SignupState,
+    LoginResult | undefined,
     FormData
-  >(login, {});
+  >(login, undefined);
   const [signupState, signupAction, isSignupPending] = useActionState<
-    SignupState,
+    LoginResult | undefined,
     FormData
-  >(signup, {});
+  >(signup, undefined);
 
   const isPending = isLoginPending || isSignupPending;
+
+  // ログインのトースト表示
+  useEffect(() => {
+    if (loginState) {
+      if (loginState.success) {
+        toast.success(loginState.message);
+      } else {
+        toast.error(loginState.message);
+      }
+    }
+  }, [loginState]);
+
+  // 新規登録のトースト表示
+  useEffect(() => {
+    if (signupState) {
+      if (signupState.success) {
+        toast.success(signupState.message);
+      } else {
+        toast.error(signupState.message);
+      }
+    }
+  }, [signupState]);
 
   return (
     <div className="w-full max-w-md space-y-8 rounded-xl border p-10 shadow-md">
@@ -50,12 +69,6 @@ export default function PlayerLoginForm() {
           新規登録
         </button>
       </div>
-
-      {(loginState.error || signupState.error) && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-red-700">
-          {loginState.error || signupState.error}
-        </div>
-      )}
 
       <form className="mt-8 space-y-6">
         <div className="space-y-4">

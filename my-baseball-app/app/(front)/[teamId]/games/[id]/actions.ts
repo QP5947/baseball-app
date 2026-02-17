@@ -88,8 +88,8 @@ export async function fetchGameDetail(gameId: string, teamId: string) {
       myScore,
       opponentScore,
       result,
-      opponentName: game.vsteams.name,
-      groundName: game.grounds.name,
+      opponentName: game.vsteams?.name || "",
+      groundName: game.grounds?.name || "未定",
       leagueName: game.leagues?.name || "",
     },
     battingResults: (battingResults || []).map((br) => ({

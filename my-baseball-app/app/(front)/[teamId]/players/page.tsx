@@ -3,6 +3,7 @@ import FrontMenu from "../components/FrontMenu";
 import Footer from "../components/Footer";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import ToastRedirect from "@/components/ToastRedirect";
 
 interface Props {
   params: Promise<{
@@ -21,7 +22,7 @@ export default async function PlayersPage({ params }: Props) {
     .single();
 
   if (!team) {
-    return <div>チームが見つかりません</div>;
+    return <ToastRedirect message="チームが見つかりません" redirectPath="/" />;
   }
 
   const { data: players } = await supabase

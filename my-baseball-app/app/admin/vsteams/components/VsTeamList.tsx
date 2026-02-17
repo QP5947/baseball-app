@@ -3,8 +3,13 @@
 import { Check, Edit2, Plus, Save, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import DeleteButton from "../../components/DeleteButton";
+import { type ActionResult } from "../actions";
+import toast from "react-hot-toast";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+
+// 画像ファイル最大サイズ（5MB）
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 import {
   DndContext,
   closestCenter,
@@ -43,12 +48,14 @@ export default function VsTeamList({
   upsertaction,
   deleteAction,
   updateSortAction,
+  onChanged,
 }: {
   masters: VsTeam[];
   iconUrls: { [key: string]: string };
-  upsertaction: (formData: FormData) => Promise<void>;
-  deleteAction: (formData: FormData) => Promise<void>;
-  updateSortAction: (ids: string[]) => Promise<void>;
+  upsertaction: (formData: FormData) => Promise<ActionResult>;
+  deleteAction: (formData: FormData) => Promise<ActionResult>;
+  updateSortAction: (ids: string[]) => Promise<ActionResult>;
+  onChanged?: () => void | Promise<void>;
 }) {
   const [items, setItems] = useState(masters);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -73,6 +80,13 @@ export default function VsTeamList({
   ) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(
+          `ファイルサイズが大きすぎます。${MAX_FILE_SIZE / 1024 / 1024}MB以下のファイルをアップロードしてください。`,
+        );
+        e.target.value = "";
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImages((prev) => ({
@@ -126,7 +140,12 @@ export default function VsTeamList({
       setItems(newOrder);
 
       const ids = newOrder.map((item) => item.id);
-      await updateSortAction(ids);
+      const result = await updateSortAction(ids);
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
     }
   };
 
@@ -163,6 +182,7 @@ export default function VsTeamList({
               upsertaction={upsertaction}
               previewImages={previewImages}
               setPreviewImages={setPreviewImages}
+              onChanged={onChanged}
             />
 
             <SortableContext
@@ -176,6 +196,21 @@ export default function VsTeamList({
                   isEditing={editingId === vsTeam.id}
                   onEdit={() => setEditingId(vsTeam.id)}
                   onCancel={() => setEditingId(null)}
+                  onDeleteSuccess={() => {
+                    setItems((prev) =>
+                      prev.filter((item) => item.id !== vsTeam.id),
+                    );
+                    setPreviewImages((prev) => {
+                      const next = { ...prev };
+                      delete next[vsTeam.id];
+                      return next;
+                    });
+                    setDeletedIcons((prev) => {
+                      const next = new Set(prev);
+                      next.delete(vsTeam.id);
+                      return next;
+                    });
+                  }}
                   upsertaction={upsertaction}
                   deleteAction={deleteAction}
                   previewImages={previewImages}
@@ -199,6 +234,7 @@ function VsTeamRow({
   isEditing,
   onEdit,
   onCancel,
+  onDeleteSuccess,
   upsertaction,
   deleteAction,
   previewImages,
@@ -212,8 +248,9 @@ function VsTeamRow({
   isEditing: boolean;
   onEdit: () => void;
   onCancel: () => void;
-  upsertaction: (formData: FormData) => Promise<void>;
-  deleteAction: (formData: FormData) => Promise<void>;
+  onDeleteSuccess: () => void;
+  upsertaction: (formData: FormData) => Promise<ActionResult>;
+  deleteAction: (formData: FormData) => Promise<ActionResult>;
   previewImages: PreviewImages;
   setPreviewImages: SetPreviewImages;
   handleFileChange: (
@@ -322,8 +359,13 @@ function VsTeamRow({
                   if (deletedIcons.has(vsTeam.id)) {
                     formData.append(`delete_icon_${vsTeam.id}`, "true");
                   }
-                  await upsertaction(formData);
-                  onCancel();
+                  const result = await upsertaction(formData);
+                  if (result.success) {
+                    toast.success(result.message);
+                    onCancel();
+                  } else {
+                    toast.error(result.message);
+                  }
                 }}
               >
                 <input type="hidden" name="id" value={vsTeam.id} />
@@ -383,6 +425,7 @@ function VsTeamRow({
                 id={vsTeam.id}
                 deleteName={vsTeam.name}
                 action={deleteAction}
+                onSuccess={onDeleteSuccess}
               />
             </div>
           </td>
@@ -396,16 +439,25 @@ function NewVsTeamRow({
   upsertaction,
   previewImages,
   setPreviewImages,
+  onChanged,
 }: {
-  upsertaction: (formData: FormData) => Promise<void>;
+  upsertaction: (formData: FormData) => Promise<ActionResult>;
   previewImages: PreviewImages;
   setPreviewImages: SetPreviewImages;
+  onChanged?: () => void | Promise<void>;
 }) {
   const newIconKey = "new-icon";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(
+          `ファイルサイズが大きすぎます。${MAX_FILE_SIZE / 1024 / 1024}MB以下のファイルをアップロードしてください。`,
+        );
+        e.target.value = "";
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImages(
@@ -420,7 +472,16 @@ function NewVsTeamRow({
   };
 
   const handleAction = async (formData: FormData) => {
-    await upsertaction(formData);
+    const result = await upsertaction(formData);
+
+    if (!result.success) {
+      toast.error(result.message);
+      return;
+    }
+
+    toast.success(result.message);
+    // DB再取得で画像も反映
+    await onChanged?.();
 
     const form = document.getElementById("form-new") as HTMLFormElement;
     form?.reset();
@@ -482,7 +543,7 @@ function NewVsTeamRow({
         <form id="form-new" action={handleAction}>
           <button
             type="submit"
-            className="bg-blue-600 text-white p-1.5 rounded hover:bg-blue-700 mx-auto block"
+            className="bg-blue-600 text-white p-1.5 rounded hover:bg-blue-700 mx-auto block cursor-pointer"
           >
             <Plus size={18} />
           </button>

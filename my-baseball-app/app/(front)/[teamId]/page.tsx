@@ -5,6 +5,7 @@ import Footer from "./components/Footer";
 import { createClient } from "@/lib/supabase/server";
 import { formatRate } from "@/utils/rateFormat";
 import { aggregateBattingRows } from "@/utils/statsAggregation";
+import ToastRedirect from "@/components/ToastRedirect";
 
 interface Props {
   params: Promise<{
@@ -24,7 +25,7 @@ export default async function TopPage({ params }: Props) {
     .single();
 
   if (!team) {
-    return <div>チームが見つかりません</div>;
+    return <ToastRedirect message="チームが見つかりません" redirectPath="/" />;
   }
 
   // 現在日時

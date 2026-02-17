@@ -29,6 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { useState, useTransition } from "react";
+import toast from "react-hot-toast";
 import PlayerMenu from "../../components/PlayerMenu";
 import {
   addGoal,
@@ -171,6 +172,7 @@ export default function GoalSettingForm({
 
         // sort値を更新
         startTransition(async () => {
+          let hasError = false;
           for (let i = 0; i < newGoals.length; i++) {
             const goal = newGoals[i];
             if (goal.goal_no) {
@@ -183,9 +185,15 @@ export default function GoalSettingForm({
                   i,
                 );
               } catch (error) {
+                hasError = true;
                 console.error("Error updating sort:", error);
               }
             }
+          }
+          if (!hasError) {
+            toast.success("目標の順番を保存しました");
+          } else {
+            toast.error("順番の保存に失敗しました");
           }
         });
       }
@@ -276,8 +284,10 @@ export default function GoalSettingForm({
           sort: g.sort,
         }));
         await addGoal(playerId, teamId, selectedYear, goalNo, existingGoals);
+        toast.success("目標を追加しました");
       } catch (error) {
         console.error("Error adding goal:", error);
+        toast.error("目標の追加に失敗しました");
         // エラーの場合はローカル状態をロールバック
         setGoals(goals);
       }
@@ -334,8 +344,10 @@ export default function GoalSettingForm({
           delete newState[goalNo];
           return newState;
         });
+        toast.success("目標を保存しました");
       } catch (error) {
         console.error("Error saving goal:", error);
+        toast.error("目標の保存に失敗しました");
       }
     });
   };
@@ -358,8 +370,10 @@ export default function GoalSettingForm({
             remainingGoals,
           );
           setGoals((prev) => prev.filter((g) => g.goal_no !== goalNo));
+          toast.success("目標を削除しました");
         } catch (error) {
           console.error("Error deleting goal:", error);
+          toast.error("目標の削除に失敗しました");
         }
       });
     }
@@ -686,7 +700,7 @@ export default function GoalSettingForm({
                                       handleSaveGoal(goal.goal_no || 0)
                                     }
                                     disabled={isPending}
-                                    className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-95 disabled:opacity-50"
+                                    className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                                   >
                                     <Save size={16} />
                                     保存

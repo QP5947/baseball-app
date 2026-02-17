@@ -47,10 +47,6 @@ export default function TeamProfilesContent() {
         <p className="text-gray-600">
           チームプロフィールの作成・編集ができます。
         </p>
-        <p className="text-gray-500 my-1">
-          リンクは Markdown 形式で入力できます。例:
-          [公式サイト](https://example.com)
-        </p>
 
         {loading ? (
           <LoadingIndicator />

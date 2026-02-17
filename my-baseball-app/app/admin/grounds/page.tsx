@@ -15,9 +15,11 @@ export default function GroundsPage() {
     loadGrounds();
   }, []);
 
-  const loadGrounds = async () => {
+  const loadGrounds = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       const supabase = createClient();
       const { data: myTeamId } = await supabase.rpc("get_my_team_id");
       const { data: groundsData } = await supabase
@@ -52,6 +54,7 @@ export default function GroundsPage() {
             upsertaction={saveGround}
             deleteAction={deleteGround}
             updateSortAction={updateSortOrder}
+            onChanged={() => loadGrounds(false)}
           />
         )}
       </div>

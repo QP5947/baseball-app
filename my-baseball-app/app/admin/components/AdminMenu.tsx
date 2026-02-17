@@ -62,7 +62,7 @@ export default function AdminMenu({ children }: { children: React.ReactNode }) {
       href: "/admin/pastPlayers",
       icon: <Users size={20} />,
     },
-    { title: "試合登録", href: "/admin/games/", icon: <Calendar size={20} /> },
+    { title: "試合登録", href: "/admin/games", icon: <Calendar size={20} /> },
     {
       title: "試合結果登録",
       href: "/admin/games/results",
@@ -95,6 +95,32 @@ export default function AdminMenu({ children }: { children: React.ReactNode }) {
     },
   ];
   const pathname = usePathname();
+
+  const normalizePath = (path: string) =>
+    path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+
+  const isActiveMenu = (href: string) => {
+    const currentPath = normalizePath(pathname);
+    const targetPath = normalizePath(href);
+    const isMatchedPath =
+      currentPath === targetPath || currentPath.startsWith(`${targetPath}/`);
+
+    if (!isMatchedPath) {
+      return false;
+    }
+
+    const hasMoreSpecificMatch = menuItems.some((item) => {
+      if (item.href === href) {
+        return false;
+      }
+      const otherPath = normalizePath(item.href);
+      const otherMatched =
+        currentPath === otherPath || currentPath.startsWith(`${otherPath}/`);
+      return otherMatched && otherPath.length > targetPath.length;
+    });
+
+    return !hasMoreSpecificMatch;
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -140,7 +166,7 @@ export default function AdminMenu({ children }: { children: React.ReactNode }) {
               key={item.href}
               href={item.href}
               className={`flex items-center gap-4 p-3  rounded-lg transition overflow-hidden whitespace-nowrap ${
-                pathname === item.href || pathname.startsWith(`${item.href}/`)
+                isActiveMenu(item.href)
                   ? "bg-blue-50 text-blue-600 shadow-sm"
                   : "hover:bg-blue-800"
               }`}

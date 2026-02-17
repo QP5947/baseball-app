@@ -1,5 +1,6 @@
 import RealTimeScoring from "../../components/RealTimeScoring";
 import { createClient } from "@/lib/supabase/server";
+import DeletedItemRedirect from "../../../components/DeletedItemRedirect";
 
 /**
  * リアルタイムスコア入力（入口）
@@ -29,7 +30,13 @@ export default async function OrderRegistrationPage({
     .eq("id", id)
     .single();
 
-  if (!gameData) return <div>試合データが見つかりません。</div>;
+  if (!gameData)
+    return (
+      <DeletedItemRedirect
+        message="試合データが見つかりません"
+        redirectPath="/admin/games"
+      />
+    );
 
   // 選手一覧を取得
   let playerList: {

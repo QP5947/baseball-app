@@ -1,6 +1,12 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
+
+export type ActionResult = {
+  success: boolean;
+  message: string;
+};
 
 export async function fetchTeamSettings() {
   try {
@@ -48,7 +54,9 @@ export async function fetchTeamSettings() {
   }
 }
 
-export async function updateTeamSettings(formData: FormData) {
+export async function updateTeamSettings(
+  formData: FormData,
+): Promise<ActionResult> {
   try {
     const supabase = await createClient();
 
@@ -213,12 +221,14 @@ export async function updateTeamSettings(formData: FormData) {
       throw updateError;
     }
 
+    revalidatePath("/admin/settings");
+
     return { success: true, message: "設定を保存しました" };
   } catch (error: any) {
     console.error("Error updating team settings:", error);
     return {
       success: false,
-      error: error?.message || "設定の保存に失敗しました",
+      message: error?.message || "設定の保存に失敗しました",
     };
   }
 }

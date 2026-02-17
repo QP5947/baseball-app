@@ -197,8 +197,8 @@ export default function DashboardContent() {
                 </span>
               </div>
               <div className="flex">
-                <div className="mr-1">{data.todayGame.leagues.name}</div>
-                <div>VS {data.todayGame.vsteams.name}</div>
+                <div className="mr-1">{data.todayGame.leagues?.name}</div>
+                <div>VS {data.todayGame.vsteams?.name || "未定"}</div>
               </div>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-auto text-base">
@@ -208,7 +208,7 @@ export default function DashboardContent() {
               </div>
               <div className="flex items-center gap-1 text-gray-700">
                 <MapPin size={15} />
-                {data.todayGame.grounds.name}
+                {data.todayGame.grounds?.name || ""}
               </div>
             </div>
             <p className="text-lg font-bold text-red-600">→試合速報入力</p>
@@ -269,10 +269,10 @@ export default function DashboardContent() {
                   <p>
                     {formatDate.format(new Date(data.nextGame.start_datetime)) +
                       " " +
-                      data.nextGame.leagues.name}
+                      data.nextGame.leagues?.name}
                   </p>
                   <p className="text-blue-500 font-bold">
-                    VS {data.nextGame.vsteams.name}
+                    VS {data.nextGame.vsteams?.name || "未定"}
                   </p>
 
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mt-auto text-base">
@@ -285,7 +285,7 @@ export default function DashboardContent() {
                     </div>
                     <div className="flex items-center gap-1 text-gray-700">
                       <MapPin size={15} />
-                      {data.nextGame.grounds.name}
+                      {data.nextGame.grounds?.name || ""}
                     </div>
                   </div>
                 </>
@@ -329,10 +329,10 @@ export default function DashboardContent() {
 
               {/* 中央：試合詳細 */}
               <div className="flex-1">
-                <div className="text-gray-400 mb-0.5">{game.leagues.name}</div>
+                <div className="text-gray-400 mb-0.5">{game.leagues?.name}</div>
                 <div className="font-bold text-gray-800">
                   <span className="text-gray-400 font-normal mr-2">VS</span>
-                  {game.vsteams.name}
+                  {game.vsteams?.name || "未定"}
                 </div>
               </div>
 

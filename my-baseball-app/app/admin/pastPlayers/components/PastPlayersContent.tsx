@@ -25,15 +25,11 @@ const handMap: Record<string, string> = {
 
 export default function PastPlayersContent() {
   const searchParams = useSearchParams();
+  const maxSelectableYear = new Date().getFullYear() - 1;
   const [pastPlayers, setPastPlayers] = useState<PastPlayer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState<number>(
-    new Date().getFullYear() - 1,
-  );
-  const [paramMinYear, setParamMinYear] = useState<number>(
-    new Date().getFullYear() - 1,
-  );
-  const currentYear = new Date().getFullYear() - 1;
+  const [selectedYear, setSelectedYear] = useState<number>(maxSelectableYear);
+  const [paramMinYear, setParamMinYear] = useState<number>(maxSelectableYear);
 
   useEffect(() => {
     // URL パラメータから年度を取得
@@ -61,7 +57,7 @@ export default function PastPlayersContent() {
         .order("year", { ascending: true })
         .limit(1)
         .single();
-      setParamMinYear(minYearData?.year || currentYear);
+      setParamMinYear(minYearData?.year || maxSelectableYear);
 
       // 過去選手の取得
       const { data: playersData } = await supabase
@@ -87,7 +83,7 @@ export default function PastPlayersContent() {
         <YearSelector
           selectedYear={selectedYear}
           paramMinYear={paramMinYear}
-          paramMaxYear={currentYear - 1}
+          paramMaxYear={maxSelectableYear}
         />
       </div>
       <p className="text-sm text-gray-600 mb-6">

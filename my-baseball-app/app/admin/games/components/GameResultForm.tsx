@@ -1,11 +1,14 @@
 "use client";
+import { useActionState, useEffect } from "react";
+import toast from "react-hot-toast";
 import { Database } from "@/types/supabase";
 import { Save } from "lucide-react";
 import Link from "next/link";
-import { saveGame } from "../results/actions";
+import { saveGame, type ActionResult } from "../results/actions";
 import BattingResultForm from "./BattingResultForm";
 import PitchingResultForm from "./PitchingResultForm";
 import ScoreBoardForm from "./ScoreBoardForm";
+import { useRouter } from "next/navigation";
 
 // 型の宣言
 type GameRow = Database["public"]["Tables"]["games"]["Row"] & {
@@ -59,7 +62,39 @@ export default function GameResultForm({
   battingResult: BattingRelustRow[];
   pitchingResult: Database["public"]["Tables"]["pitching_results"]["Row"][];
 }) {
+  const router = useRouter();
   const start_datetime = new Date(game.start_datetime);
+
+  const [state, formAction, isPending] = useActionState<
+    ActionResult | undefined,
+    FormData
+  >(async (_prevState: ActionResult | undefined, formData: FormData) => {
+    try {
+      return await saveGame(formData);
+    } catch (error) {
+      console.error("試合結果の保存中に予期しないエラーが発生しました:", error);
+      return {
+        success: false,
+        message: "試合結果の保存に失敗しました",
+      };
+    }
+  }, undefined);
+
+  useEffect(() => {
+    if (state) {
+      if (state.success) {
+        sessionStorage.setItem(
+          "admin-games-results-success-toast",
+          state.message,
+        );
+        router.push(
+          `/admin/games/results?year=${start_datetime.getFullYear()}`,
+        );
+      } else {
+        toast.error(state.message);
+      }
+    }
+  }, [state, router, start_datetime]);
 
   // Enterのフォーム送信を防止する
   const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
@@ -74,7 +109,7 @@ export default function GameResultForm({
   };
 
   return (
-    <form action={saveGame} onKeyDown={handleKeyDown} className="space-y-4">
+    <form action={formAction} onKeyDown={handleKeyDown} className="space-y-4">
       {/* 試合ID */}
       {game?.id && <input type="hidden" name="id" value={game.id} />}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import { Save, X } from "lucide-react";
 import { LoadingIndicator } from "@/components/LoadingSkeleton";
 import { Database } from "@/types/supabase";
@@ -45,12 +46,20 @@ export default function TeamSettingsForm() {
     }
   };
 
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     fieldName: "team_logo" | "top_image" | "team_icon",
   ) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(
+          `ファイルサイズが大きすぎます。${MAX_FILE_SIZE / 1024 / 1024}MB以下のファイルをアップロードしてください。`,
+        );
+        e.target.value = "";
+        return;
+      }
       // ローカルプレビューを表示
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -103,13 +112,14 @@ export default function TeamSettingsForm() {
         setDeletedImages(new Set());
         // Load updated team settings
         await loadTeamSettings();
-        setMessage(result.message || "設定を保存しました");
+        toast.success(result.message || "設定を保存しました");
       } else {
-        setMessage(result.error || "設定の保存に失敗しました");
+        toast.error(result.message || "設定の保存に失敗しました");
       }
     } catch (error: any) {
-      console.error("Error saving settings:", error);
-      setMessage(error?.message || "設定の保存に失敗しました");
+      if (!saving) {
+        toast.error(error?.message || "設定の保存に失敗しました");
+      }
     } finally {
       setSaving(false);
     }
@@ -125,18 +135,6 @@ export default function TeamSettingsForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
-      {message && (
-        <div
-          className={`p-4 rounded-lg ${
-            message.includes("失敗")
-              ? "bg-red-100 text-red-700"
-              : "bg-green-100 text-green-700"
-          }`}
-        >
-          {message}
-        </div>
-      )}
-
       {/* チーム名 */}
       <div>
         <label

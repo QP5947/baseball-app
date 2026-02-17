@@ -2,7 +2,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/types/supabase";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+
+export type ActionResult = {
+  success: boolean;
+  message: string;
+};
 
 type BattingResultsType =
   Database["public"]["Tables"]["batting_results"][`Insert`];
@@ -15,14 +19,17 @@ type PitchingResultsType =
   Database["public"]["Tables"]["pitching_results"][`Insert`];
 
 // 新規・更新
-export async function saveGame(formData: FormData) {
+export async function saveGame(formData: FormData): Promise<ActionResult> {
   // ログイン者のチームIDを取得
   const supabase = await createClient();
   const { data: myTeamId, error: rpcError } =
     await supabase.rpc("get_my_team_id");
   if (rpcError || !myTeamId) {
     console.error("チームIDの取得に失敗しました:", rpcError);
-    return;
+    return {
+      success: false,
+      message: "チームIDの取得に失敗しました",
+    };
   }
 
   const gameId = formData.get("id");
@@ -52,9 +59,10 @@ export async function saveGame(formData: FormData) {
 
   if (error) {
     console.error("Error creating game:", error.message);
-    // 実際はここでエラーを呼び出し元に返して表示させるのが理想ですが、
-    // まずは最小実装で進めます
-    return;
+    return {
+      success: false,
+      message: "試合データの更新に失敗しました",
+    };
   }
 
   // 打席結果の生成
@@ -152,7 +160,10 @@ export async function saveGame(formData: FormData) {
   });
   if (upsertError) {
     console.error("登録処理に失敗しました:", upsertError);
-    return;
+    return {
+      success: false,
+      message: "成績の登録に失敗しました",
+    };
   }
 
   const { error: refreshError } = await supabase.rpc(
@@ -165,21 +176,41 @@ export async function saveGame(formData: FormData) {
   // 一覧画面のデータを最新の状態に更新（キャッシュクリア）
   revalidatePath("/admin/games/results/");
 
-  // 一覧画面へリダイレクト
-  redirect("/admin/games/results/");
+  return {
+    success: true,
+    message: "試合結果を保存しました",
+  };
 }
 
-// 削除
-export async function deleteGame(formData: FormData) {
+export async function deleteGame(formData: FormData): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: myTeamId, error: rpcError } =
     await supabase.rpc("get_my_team_id");
 
-  await supabase
+  if (rpcError || !myTeamId) {
+    return {
+      success: false,
+      message: "ゲームの削除に失敗しました",
+    };
+  }
+
+  const { error } = await supabase
     .from("games")
     .delete()
     .eq("team_id", myTeamId)
     .eq("id", formData.get("id"));
 
-  revalidatePath("/admin/games");
+  if (error) {
+    return {
+      success: false,
+      message: "ゲームの削除に失敗しました",
+    };
+  }
+
+  revalidatePath("/admin/games/results");
+
+  return {
+    success: true,
+    message: "ゲームを削除しました",
+  };
 }

@@ -4,7 +4,17 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+export type FirstLoginResult = {
+  success: boolean;
+  message: string;
+  error?: string;
+  teamId?: string;
+  passphrase?: string;
+  playerId?: string;
+};
+
 export type FirstLoginState =
+  | FirstLoginResult
   | {
       error?: string;
       teamId?: string;
@@ -22,7 +32,7 @@ export type FirstLoginState =
 export async function completeFirstLogin(
   state: FirstLoginState,
   formData: FormData,
-): Promise<FirstLoginState> {
+): Promise<FirstLoginResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,19 +50,15 @@ export async function completeFirstLogin(
 
   if (!teamId || !playerId || !passphrase || !password || !passwordConfirm) {
     return {
-      error: "missing",
-      teamId,
-      passphrase,
-      playerId,
+      success: false,
+      message: "必要項目を入力してください",
     };
   }
 
   if (password !== passwordConfirm) {
     return {
-      error: "password_mismatch",
-      teamId,
-      passphrase,
-      playerId,
+      success: false,
+      message: "パスワードが一致しません",
     };
   }
 
@@ -65,10 +71,8 @@ export async function completeFirstLogin(
 
   if (error || !player || player.user_id) {
     return {
-      error: "invalid",
-      teamId,
-      passphrase,
-      playerId,
+      success: false,
+      message: "無効なリクエストです",
     };
   }
 
@@ -79,10 +83,8 @@ export async function completeFirstLogin(
   if (passwordError) {
     console.error("Password update error:", passwordError.message);
     return {
-      error: "password",
-      teamId,
-      passphrase,
-      playerId,
+      success: false,
+      message: "パスワードの設定に失敗しました",
     };
   }
 
@@ -95,7 +97,10 @@ export async function completeFirstLogin(
 
   if (updateError) {
     console.error("First login update error:", updateError.message);
-    redirect("/error");
+    return {
+      success: false,
+      message: "登録に失敗しました",
+    };
   }
 
   revalidatePath("/", "layout");

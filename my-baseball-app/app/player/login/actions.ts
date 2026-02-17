@@ -6,10 +6,15 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+export type LoginResult = {
+  success: boolean;
+  message: string;
+};
+
 export async function login(
-  _prevState: { error?: string },
+  _prevState: LoginResult | undefined,
   formData: FormData,
-) {
+): Promise<LoginResult> {
   const supabase = await createClient();
 
   const data = {
@@ -22,7 +27,10 @@ export async function login(
 
   if (error || !authData.user) {
     console.error("Login error:", error?.message);
-    return { error: error?.message || "ログインに失敗しました" };
+    return {
+      success: false,
+      message: error?.message || "ログインに失敗しました",
+    };
   }
 
   const { data: player } = await supabase
@@ -46,9 +54,9 @@ export async function login(
  * @param formData
  */
 export async function signup(
-  _prevState: { error?: string },
+  _prevState: LoginResult | undefined,
   formData: FormData,
-) {
+): Promise<LoginResult> {
   const supabase = await createClient();
 
   const origin = (await headers()).get("origin") ?? "";
@@ -75,7 +83,8 @@ export async function signup(
 
   if (signUpData?.user?.identities?.length === 0) {
     return {
-      error: "このメールアドレスは登録済みです。ログインしてください。",
+      success: false,
+      message: "このメールアドレスは登録済みです。ログインしてください。",
     };
   }
 
@@ -86,11 +95,15 @@ export async function signup(
       message.includes("registered")
     ) {
       return {
-        error: "このメールアドレスは登録済みです。ログインしてください。",
+        success: false,
+        message: "このメールアドレスは登録済みです。ログインしてください。",
       };
     }
     console.error("Signup error:", error.message);
-    redirect("/error");
+    return {
+      success: false,
+      message: "登録に失敗しました",
+    };
   }
 
   revalidatePath("/", "layout");

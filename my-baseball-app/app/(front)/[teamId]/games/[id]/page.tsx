@@ -5,7 +5,7 @@ import Footer from "../../components/Footer";
 import FrontMenu from "../../components/FrontMenu";
 import { createClient } from "@/lib/supabase/server";
 import { fetchGameDetail } from "./actions";
-import { redirect } from "next/navigation";
+import ToastRedirect from "@/components/ToastRedirect";
 
 type Params = Promise<{ teamId: string; id: string }>;
 type SearchParams = Promise<{ year?: string; month?: string }>;
@@ -56,12 +56,17 @@ export default async function GameDetailPage(props: {
 
   if (teamError || !teamData) {
     console.error("Team data error:", teamError);
-    redirect("/");
+    return <ToastRedirect message="チームが見つかりません" redirectPath="/" />;
   }
 
   const gameDetail = await fetchGameDetail(params.id, params.teamId);
   if (!gameDetail) {
-    return <div>試合が見つかりません</div>;
+    return (
+      <ToastRedirect
+        message="試合が見つかりません"
+        redirectPath={`/${params.teamId}/games`}
+      />
+    );
   }
 
   const { game, battingResults, battingDetails, pitchingResults } = gameDetail;
@@ -90,14 +95,14 @@ export default async function GameDetailPage(props: {
 
     // 優先順位1: icon
     if (vsTeamIconUrl) {
-      return { type: "image", content: vsTeamIconUrl, alt: game.vsteams.name };
+      return { type: "image", content: vsTeamIconUrl, alt: game.vsteams?.name };
     }
     // 優先順位2: one_name（1文字表示）
     if (game.vsteams.one_name) {
       return { type: "text", content: game.vsteams.one_name };
     }
     // 優先順位3: 相手チーム名の1文字目
-    return { type: "text", content: game.vsteams.name.charAt(0) };
+    return { type: "text", content: game.vsteams?.name?.charAt(0) || "" };
   };
 
   const vsTeamIconDisplay = getVsTeamIconDisplay();

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import StatsAnalysisClient from "./components/StatsAnalysisClient";
+import ToastRedirect from "@/components/ToastRedirect";
 
 interface Props {
   params: Promise<{
@@ -18,7 +19,7 @@ export default async function StatsAnalysisPage({ params }: Props) {
     .single();
 
   if (!team) {
-    return <div>チームが見つかりません</div>;
+    return <ToastRedirect message="チームが見つかりません" redirectPath="/" />;
   }
 
   const { data: battingDaily } = await supabase

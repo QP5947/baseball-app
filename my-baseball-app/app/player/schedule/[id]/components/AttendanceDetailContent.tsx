@@ -7,6 +7,7 @@ import Link from "next/link";
 import { LoadingIndicator } from "@/components/LoadingSkeleton";
 import { createClient } from "@/lib/supabase/client";
 import AttendanceDetailClient from "./AttendanceDetailClient";
+import toast from "react-hot-toast";
 
 const normalizeStatus = (row: any): "attending" | "absent" | "pending" => {
   const raw = row?.attendance_no ?? row?.status ?? null;
@@ -114,7 +115,8 @@ export default function AttendanceDetailContent({
         .maybeSingle();
 
       if (!game) {
-        router.push("/player/schedule");
+        setLoading(false);
+        setPlayerId(""); // これで下の描画でToastRedirectを返す
         return;
       }
 
@@ -236,6 +238,17 @@ export default function AttendanceDetailContent({
         </header>
         <LoadingIndicator />
       </div>
+    );
+  }
+
+  // 試合が見つからなかった場合
+  if (!playerId) {
+    const ToastRedirect = require("@/components/ToastRedirect").default;
+    return (
+      <ToastRedirect
+        message="試合が見つかりません"
+        redirectPath="/player/schedule"
+      />
     );
   }
 

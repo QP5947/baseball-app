@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import GameForm from "../components/GameForm";
+import DeletedItemRedirect from "../../components/DeletedItemRedirect";
 
 export default async function EditGamePage({
   params,
@@ -44,7 +45,13 @@ export default async function EditGamePage({
     .eq("id", id)
     .single();
 
-  if (!game) return <div>試合が見つかりません</div>;
+  if (!game)
+    return (
+      <DeletedItemRedirect
+        message="試合が見つかりません"
+        redirectPath="/admin/games"
+      />
+    );
 
   return (
     <AdminLayout>

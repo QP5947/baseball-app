@@ -65,6 +65,7 @@ export default function VsTeamsContent() {
           upsertaction={saveVsTeam}
           deleteAction={deleteVsTeam}
           updateSortAction={updateSortOrder}
+          onChanged={loadVsTeams}
         />
       )}
     </div>

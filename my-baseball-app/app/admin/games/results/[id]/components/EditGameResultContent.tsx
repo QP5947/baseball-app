@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { LoadingIndicator } from "@/components/LoadingSkeleton";
 import { createClient } from "@/lib/supabase/client";
 import GameResultForm from "@/admin/games/components/GameResultForm";
+import DeletedItemRedirect from "@/admin/components/DeletedItemRedirect";
 
 interface Game {
   id: string;
@@ -39,7 +39,6 @@ export default function EditGameResultContent({
   gameId: string;
   year?: string;
 }) {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<Game | null>(null);
   const [playerList, setPlayerList] = useState<Player[]>([]);
@@ -66,7 +65,6 @@ export default function EditGameResultContent({
         .single();
 
       if (!gameData) {
-        router.push("/admin/games/results");
         return;
       }
 
@@ -136,7 +134,12 @@ export default function EditGameResultContent({
   }
 
   if (!game) {
-    return <div>試合が見つかりません</div>;
+    return (
+      <DeletedItemRedirect
+        message="試合が見つかりません"
+        redirectPath="/admin/games/results"
+      />
+    );
   }
 
   return (

@@ -1,10 +1,10 @@
 "use client";
 
+import { useActionState, useEffect as useEffect_react, useState } from "react";
+import toast from "react-hot-toast";
 import { Database } from "@/types/supabase";
 import { PlusCircle, Save } from "lucide-react";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { saveTeamProfile } from "../actions";
+import { saveTeamProfile, type ActionResult } from "../actions";
 
 type TeamProfileRow = Pick<
   Database["public"]["Tables"]["team_profiles"]["Row"],
@@ -16,94 +16,165 @@ export default function TeamProfileFormRow({
 }: {
   teamProfiles: TeamProfileRow[];
 }) {
-  // QA管理
-  const [profiles, setProfiles] = useState<{ q: string; a: string }[]>(
-    Array.from({ length: 2 }, () => ({ q: "", a: "" })),
-  );
-  useEffect(() => {
-    if (teamProfiles && teamProfiles.length > 0) {
-      setProfiles(teamProfiles.map((p) => ({ q: p.q ?? "", a: p.a ?? "" })));
-      if (teamProfiles.length === 1) {
-        addRow();
+  const [profiles, setProfiles] = useState<{ q: string; a: string }[]>([
+    { q: "プロフィール", a: "" },
+  ]);
+
+  const [state, formAction, isPending] = useActionState<
+    ActionResult | undefined,
+    FormData
+  >(async (_prevState: ActionResult | undefined, formData: FormData) => {
+    const questions = formData.getAll("q");
+    const answers = formData.getAll("a");
+    const submittedProfiles = questions.map((q, idx) => ({
+      q: String(q ?? ""),
+      a: String(answers[idx] ?? ""),
+    }));
+
+    const result = await saveTeamProfile(formData);
+    return {
+      ...result,
+      formData: {
+        profiles: submittedProfiles,
+      },
+    };
+  }, undefined);
+
+  useEffect_react(() => {
+    if (state) {
+      if (state.success) {
+        toast.success(state.message);
+      } else {
+        toast.error(state.message);
+      }
+
+      if (state.formData?.profiles?.length) {
+        setProfiles(state.formData.profiles);
       }
     }
+  }, [state]);
+
+  useEffect_react(() => {
+    if (teamProfiles && teamProfiles.length > 0) {
+      setProfiles(teamProfiles.map((p) => ({ q: p.q ?? "", a: p.a ?? "" })));
+      return;
+    }
+    setProfiles([{ q: "プロフィール", a: "" }]);
   }, [teamProfiles]);
 
-  // 行の追加
   const addRow = () => {
-    setProfiles((prev) => {
-      const newPlayer = { q: "", a: "" };
-      return [...prev, newPlayer];
-    });
+    setProfiles((prev) => [...prev, { q: "", a: "" }]);
   };
-  // 行のクリア
+
+  const updateProfile = (idx: number, field: "q" | "a", value: string) => {
+    setProfiles((prev) =>
+      prev.map((profile, profileIdx) =>
+        profileIdx === idx ? { ...profile, [field]: value } : profile,
+      ),
+    );
+  };
+
   const clearRow = () => {
-    setProfiles((prev) => {
-      return Array.from({ length: 2 }, () => ({ q: "", a: "" }));
-    });
+    if (confirm("入力をすべてクリアしますか？")) {
+      setProfiles([{ q: "プロフィール", a: "" }]);
+    }
   };
 
   return (
-    <form action={saveTeamProfile} className="space-y-6">
-      {profiles?.map((profile, idx) =>
-        idx === 0 ? (
-          <div key={`profile-row-${idx}`}>
-            <label className="block font-medium text-gray-700 mb-1">
-              プロフィール
-            </label>
-            <textarea
-              name="a"
-              className="w-full p-3 border rounded-lg focus:ring-2 border-gray-400 focus:ring-blue-500 outline-none transition text-gray-800 placeholder-gray-400"
-              defaultValue={profile.a || ""}
-            />
-            <input type="hidden" name="q" value="プロフィール" />
-          </div>
-        ) : (
-          <div key={idx}>
-            <label className="block font-medium text-gray-700 mb-1">
-              項目{idx}
-            </label>
-            <input
-              name="q"
-              type="text"
-              className="w-full mb-2 p-3 border rounded-lg focus:ring-2 border-gray-400 focus:ring-blue-500 outline-none transition text-gray-800 placeholder-gray-400"
-              defaultValue={profile?.q || ""}
-            />
-            <label className="block font-medium text-gray-700 mb-1">
-              回答{idx}
-            </label>
-            <textarea
-              name="a"
-              className="w-full p-3 border rounded-lg focus:ring-2 border-gray-400 focus:ring-blue-500 outline-none transition text-gray-800 placeholder-gray-400"
-              defaultValue={profile?.a || ""}
-            />
-          </div>
-        ),
-      )}
-      {/* 追加ボタン */}
-      <button
-        type="button"
-        onClick={() => addRow()}
-        className="ml-2 bg-blue-500 text-white rounded-full p-0.5 shadow-md transform hover:scale-125 pointer-coarse:scale-125 transition-all flex items-center justify-center border-2 border-white cursor-pointer"
-      >
-        <PlusCircle size={14} />
-      </button>
+    <form action={formAction} className="space-y-8">
+      {profiles.map((profile, idx) => (
+        <div
+          key={idx}
+          className="p-4 border border-gray-100 rounded-xl bg-gray-50/50 relative"
+        >
+          {idx === 0 ? (
+            <div>
+              <label className="block font-bold text-gray-800 text-lg mb-2">
+                基本プロフィール
+              </label>
+              <textarea
+                name="a"
+                rows={3}
+                placeholder="チームの紹介文を入力してください"
+                className="w-full p-4 border rounded-lg focus:ring-2 border-gray-300 focus:ring-blue-500 outline-none transition text-base text-gray-800 bg-white"
+                value={profile.a || ""}
+                onChange={(e) => updateProfile(idx, "a", e.target.value)}
+              />
+              <input
+                type="hidden"
+                name="q"
+                value={profile.q || "プロフィール"}
+              />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block font-bold text-gray-800 text-lg mb-2">
+                  項目タイトル {idx}
+                </label>
+                <input
+                  name="q"
+                  type="text"
+                  placeholder="例：ホームグラウンド、部費など"
+                  className="w-full p-4 border rounded-lg focus:ring-2 border-gray-300 focus:ring-blue-500 outline-none transition text-base text-gray-800 bg-white"
+                  value={profile?.q || ""}
+                  onChange={(e) => updateProfile(idx, "q", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-gray-800 text-lg mb-2">
+                  内容
+                </label>
+                <textarea
+                  name="a"
+                  rows={2}
+                  className="w-full p-4 border rounded-lg focus:ring-2 border-gray-300 focus:ring-blue-500 outline-none transition text-base text-gray-800 bg-white"
+                  value={profile?.a || ""}
+                  onChange={(e) => updateProfile(idx, "a", e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
 
-      {/* ボタン類 */}
-      <div className="pt-4 flex gap-4">
+      {/* 改善された追加ボタンエリア */}
+      <div className="flex justify-center py-2">
         <button
           type="button"
-          className="flex-1 px-6 py-3 border border-gray-300 text-gray-600 font-bold rounded-lg hover:bg-gray-50 text-center transition cursor-pointer"
+          onClick={addRow}
+          className="w-full py-6 border-4 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all group cursor-pointer"
+        >
+          <PlusCircle
+            size={32}
+            className="group-hover:scale-110 transition-transform"
+          />
+          <span className="text-lg font-bold">項目を追加する</span>
+        </button>
+      </div>
+
+      <div className="bg-blue-50 p-4 rounded-lg">
+        <p className="text-blue-800 text-base leading-relaxed">
+          💡 リンクは
+          [タイトル](URL)の形式で入力すると自動的にリンクになります。
+        </p>
+      </div>
+
+      <div className="pt-6 flex flex-col sm:flex-row gap-4">
+        <button
+          type="button"
+          className="flex-1 px-6 py-4 border border-gray-300 text-gray-600 font-bold rounded-xl hover:bg-gray-200 text-lg transition cursor-pointer"
           onClick={clearRow}
         >
-          クリア
+          内容をリセット
         </button>
         <button
           type="submit"
-          className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 cursor-pointer"
+          disabled={isPending}
+          className="flex-2 bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition flex items-center justify-center gap-3 text-xl shadow-lg active:transform active:scale-95 order-1 sm:order-2 disabled:bg-blue-300 cursor-pointer"
         >
-          <Save size={20} />
-          保存
+          <Save size={24} />
+          {isPending ? "保存中..." : "プロフィールを保存"}
         </button>
       </div>
     </form>

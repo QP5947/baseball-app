@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Clock, MapPin, ChevronRight, CalendarCheck } from "lucide-react";
 import Link from "next/link";
 import { LoadingIndicator } from "@/components/LoadingSkeleton";
+import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import { aggregateBattingRows } from "@/utils/statsAggregation";
 
@@ -64,8 +65,6 @@ export default function ScheduleContent() {
     unanswered: 0,
   });
   const [attendanceRate, setAttendanceRate] = useState(0);
-  const [playerNo, setPlayerNo] = useState("");
-  const [playerName, setPlayerName] = useState("");
 
   useEffect(() => {
     loadScheduleData();
@@ -94,9 +93,6 @@ export default function ScheduleContent() {
         router.push("/player/login");
         return;
       }
-
-      setPlayerNo(player.no ?? "");
-      setPlayerName(player.name ?? "");
 
       const { data: myTeamId } = await supabase.rpc("get_my_team_id");
 
@@ -168,9 +164,9 @@ export default function ScheduleContent() {
           date: formatDate(eventDate),
           day: formatDay(eventDate),
           time: formatTime(eventDate),
-          title: game.leagues.name || game.remarks || "練習",
-          vsteam: game.vsteams.name || "未定",
-          location: game.grounds.name || "会場未定",
+          title: game.leagues?.name ?? "",
+          vsteam: game.vsteams?.name ?? "未定",
+          location: game.grounds?.name ?? "",
           status,
           counts,
         };
@@ -180,6 +176,7 @@ export default function ScheduleContent() {
       setSummary(summaryData);
     } catch (error) {
       console.error("Error loading schedule data:", error);
+      toast.error("スケジュールの取得に失敗しました");
     } finally {
       setLoading(false);
     }

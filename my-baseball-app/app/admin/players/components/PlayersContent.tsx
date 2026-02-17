@@ -201,6 +201,7 @@ export default function PlayersContent() {
                           id={player.id}
                           deleteName={player.name}
                           action={deletePlayer}
+                          onSuccess={loadPlayers}
                         />
                       )}
                     </div>

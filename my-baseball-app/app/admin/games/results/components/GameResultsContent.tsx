@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import DeleteButton from "../../../components/DeleteButton";
 import YearSelector from "../../../components/YearSelector";
 import { deleteGame } from "../actions";
+import toast from "react-hot-toast";
 
 interface Game {
   id: string;
@@ -55,6 +56,14 @@ export default function GameResultsContent() {
     const yearParam = searchParams.get("year");
     if (yearParam) {
       setSelectedYear(parseInt(yearParam));
+    }
+
+    const successMessage = sessionStorage.getItem(
+      "admin-games-results-success-toast",
+    );
+    if (successMessage) {
+      toast.success(successMessage);
+      sessionStorage.removeItem("admin-games-results-success-toast");
     }
   }, [searchParams]);
 
@@ -171,11 +180,15 @@ export default function GameResultsContent() {
                   <td className="p-4 text-gray-600 text-center">
                     {formatted.format(new Date(game.start_datetime))}
                   </td>
-                  <td className="p-4 text-gray-600">{game.leagues.name}</td>
-                  <td className="p-4 text-gray-600 hidden md:table-cell">
-                    {game.grounds.name}
+                  <td className="p-4 text-gray-600">
+                    {game.leagues?.name || ""}
                   </td>
-                  <td className="p-4 text-gray-600">{game.vsteams.name}</td>
+                  <td className="p-4 text-gray-600 hidden md:table-cell">
+                    {game.grounds?.name || ""}
+                  </td>
+                  <td className="p-4 text-gray-600">
+                    {game.vsteams?.name || ""}
+                  </td>
                   <td className="p-4 text-gray-600">
                     {game.status !== null && game.status !== undefined
                       ? gameStatusMap[game.status]
@@ -209,9 +222,10 @@ export default function GameResultsContent() {
                         deleteName={
                           formatted.format(new Date(game.start_datetime)) +
                           "～ VS" +
-                          game.vsteams.name
+                          (game.vsteams?.name || "（未選択）")
                         }
                         action={deleteGame}
+                        onSuccess={loadGameResults}
                       />
                     </div>
                   </td>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import PastPlayerForm from "../components/PastPlayerForm";
+import DeletedItemRedirect from "../../components/DeletedItemRedirect";
 
 export default async function EditPastPlayerPage({
   params,
@@ -24,7 +25,13 @@ export default async function EditPastPlayerPage({
     .eq("player_id", id)
     .single();
 
-  if (!pastPlayer) return <div>選手が見つかりません</div>;
+  if (!pastPlayer)
+    return (
+      <DeletedItemRedirect
+        message="選手が見つかりません"
+        redirectPath={`/admin/pastPlayers?year=${year}`}
+      />
+    );
 
   return (
     <AdminLayout>

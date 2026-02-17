@@ -3,6 +3,7 @@
 import { Check, Edit2, Plus, Save, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import DeleteButton from "../components/DeleteButton";
+import toast from "react-hot-toast";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -29,16 +30,23 @@ interface Master {
   sort: number;
 }
 
+export type ActionResult = {
+  success: boolean;
+  message: string;
+};
+
 export default function MasterList({
   masters,
   upsertaction,
   deleteAction,
   updateSortAction,
+  onChanged,
 }: {
   masters: Master[];
-  upsertaction: (formData: FormData) => Promise<void>;
-  deleteAction: (formData: FormData) => Promise<void>;
-  updateSortAction: (ids: string[]) => Promise<void>;
+  upsertaction: (formData: FormData) => Promise<ActionResult>;
+  deleteAction: (formData: FormData) => Promise<ActionResult>;
+  updateSortAction: (ids: string[]) => Promise<ActionResult>;
+  onChanged?: () => Promise<void> | void;
 }) {
   // DBのデータ(masters)が変わったら内部状態(items)も更新する
   const [items, setItems] = useState(masters);
@@ -77,6 +85,13 @@ export default function MasterList({
       const ids = newOrder.map((item) => item.id);
       const result = await updateSortAction(ids);
 
+      if (result.success) {
+        toast.success(result.message);
+        await onChanged?.();
+      } else {
+        toast.error(result.message);
+      }
+
       /* 
       if (!result?.success) {
         // 失敗した場合は元の順序に戻す、などの処理を入れるとより親切です
@@ -108,7 +123,7 @@ export default function MasterList({
             </tr>
           </thead>
           <tbody>
-            <NewMasterRow upsertaction={upsertaction} />
+            <NewMasterRow upsertaction={upsertaction} onChanged={onChanged} />
 
             <SortableContext
               items={items}
@@ -121,6 +136,12 @@ export default function MasterList({
                   isEditing={editingId === master.id}
                   onEdit={() => setEditingId(master.id)}
                   onCancel={() => setEditingId(null)}
+                  onDeleteSuccess={() => {
+                    setItems((prev) =>
+                      prev.filter((item) => item.id !== master.id),
+                    );
+                    onChanged?.();
+                  }}
                   upsertaction={upsertaction}
                   deleteAction={deleteAction}
                 />
@@ -138,6 +159,7 @@ function MasterRow({
   isEditing,
   onEdit,
   onCancel,
+  onDeleteSuccess,
   upsertaction,
   deleteAction,
 }: {
@@ -145,8 +167,9 @@ function MasterRow({
   isEditing: boolean;
   onEdit: () => void;
   onCancel: () => void;
-  upsertaction: (formData: FormData) => Promise<void>;
-  deleteAction: (formData: FormData) => Promise<void>;
+  onDeleteSuccess: () => void;
+  upsertaction: (formData: FormData) => Promise<ActionResult>;
+  deleteAction: (formData: FormData) => Promise<ActionResult>;
 }) {
   const {
     attributes,
@@ -206,8 +229,13 @@ function MasterRow({
               <form
                 id={`form-${master.id}`}
                 action={async (formData) => {
-                  await upsertaction(formData);
-                  onCancel();
+                  const result = await upsertaction(formData);
+                  if (result.success) {
+                    toast.success(result.message);
+                    onCancel();
+                  } else {
+                    toast.error(result.message);
+                  }
                 }}
               >
                 <input type="hidden" name="id" value={master.id} />
@@ -251,6 +279,7 @@ function MasterRow({
                 id={master.id}
                 deleteName={master.name}
                 action={deleteAction}
+                onSuccess={onDeleteSuccess}
               />
             </div>
           </td>
@@ -262,12 +291,22 @@ function MasterRow({
 
 function NewMasterRow({
   upsertaction,
+  onChanged,
 }: {
-  upsertaction: (formData: FormData) => Promise<void>;
+  upsertaction: (formData: FormData) => Promise<ActionResult>;
+  onChanged?: () => Promise<void> | void;
 }) {
   const handleAction = async (formData: FormData) => {
     // データ登録
-    await upsertaction(formData);
+    const result = await upsertaction(formData);
+
+    if (!result.success) {
+      toast.error(result.message);
+      return;
+    }
+
+    toast.success(result.message);
+    await onChanged?.();
 
     // 保存後にフォームをリセットする
     const form = document.getElementById("form-new") as HTMLFormElement;
@@ -293,7 +332,7 @@ function NewMasterRow({
         <form id="form-new" action={handleAction}>
           <button
             type="submit"
-            className="bg-blue-600 text-white p-1.5 rounded hover:bg-blue-700 mx-auto block"
+            className="bg-blue-600 text-white p-1.5 rounded hover:bg-blue-700 mx-auto block cursor-pointer"
           >
             <Plus size={18} />
           </button>

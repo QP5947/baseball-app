@@ -15,9 +15,11 @@ export default function LeaguesPage() {
     loadLeagues();
   }, []);
 
-  const loadLeagues = async () => {
+  const loadLeagues = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       const supabase = createClient();
       const { data: myTeamId } = await supabase.rpc("get_my_team_id");
       const { data: leaguesData } = await supabase
@@ -52,6 +54,7 @@ export default function LeaguesPage() {
             upsertaction={saveLeague}
             deleteAction={deleteLeague}
             updateSortAction={updateSortOrder}
+            onChanged={() => loadLeagues(false)}
           />
         )}
       </div>
