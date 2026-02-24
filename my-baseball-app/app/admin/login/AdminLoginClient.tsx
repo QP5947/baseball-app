@@ -178,21 +178,6 @@ export default function AdminLoginClient() {
                 "ログイン"
               )}
             </button>
-            {/* 開発時のみ使用。本番では隠すか、特定のURLからのみに制限するのが一般的です */}
-            <button
-              formAction={signupAction}
-              disabled={isLoginPending || isSignupPending}
-              className="w-full rounded-2xl border-2 border-slate-200 px-6 py-5 text-2xl font-black text-slate-700 hover:bg-slate-50 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-gray-400 disabled:border-slate-200 flex items-center justify-center gap-3 transition-all cursor-pointer"
-            >
-              {isSignupPending ? (
-                <>
-                  <span className="h-6 w-6 animate-spin rounded-full border-4 border-slate-700 border-t-transparent"></span>
-                  処理中...
-                </>
-              ) : (
-                "新規アカウント登録"
-              )}
-            </button>
           </div>
         </form>
       </div>
