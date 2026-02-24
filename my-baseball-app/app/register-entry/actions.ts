@@ -27,7 +27,7 @@ export async function registerEntry(
     email,
     password,
     options: {
-      emailRedirectTo: "/team-register",
+      emailRedirectTo: `${window.location.origin}/team-register`,
     },
   });
 

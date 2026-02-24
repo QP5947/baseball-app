@@ -52,35 +52,6 @@ export async function login(
   redirect("/admin/dashboard");
 }
 
-export async function signup(
-  _prevState: LoginResult | undefined,
-  formData: FormData,
-): Promise<LoginResult> {
-  const supabase = await createClient();
-
-  const data = {
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
-  };
-
-  // Supabase Authで新規登録
-  const { error } = await supabase.auth.signUp(data);
-
-  if (error) {
-    console.error("Signup error:", error.message);
-    return {
-      success: false,
-      message: error.message || "アカウント登録に失敗しました",
-    };
-  }
-
-  // 登録成功
-  return {
-    success: true,
-    message: "アカウント登録が完了しました。ログインしてください。",
-  };
-}
-
 export async function logout() {
   const supabase = await createClient();
 

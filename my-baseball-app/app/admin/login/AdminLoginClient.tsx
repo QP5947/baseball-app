@@ -2,7 +2,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { login, signup, type LoginResult } from "./actions";
+import { login, type LoginResult } from "./actions";
 import { supabase } from "@/utils/supabase";
 
 export default function AdminLoginClient() {
@@ -11,11 +11,6 @@ export default function AdminLoginClient() {
     LoginResult | undefined,
     FormData
   >(login, undefined);
-
-  const [signupState, signupAction, isSignupPending] = useActionState<
-    LoginResult | undefined,
-    FormData
-  >(signup, undefined);
 
   // ログインのトースト表示・成功時遷移
   useEffect(() => {
@@ -37,17 +32,6 @@ export default function AdminLoginClient() {
       }
     }
   }, [loginState, router]);
-
-  // 新規登録のトースト表示
-  useEffect(() => {
-    if (signupState) {
-      if (signupState.success) {
-        toast.success(signupState.message);
-      } else {
-        toast.error(signupState.message);
-      }
-    }
-  }, [signupState]);
 
   // SNSログイン
   const handleSocialLogin = async (provider: "google" | "facebook" | "x") => {
@@ -141,7 +125,7 @@ export default function AdminLoginClient() {
                 name="email"
                 type="email"
                 required
-                disabled={isLoginPending || isSignupPending}
+                disabled={isLoginPending}
                 className="block w-full rounded-2xl border-2 border-slate-200 px-5 py-4 text-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-100 focus:outline-none disabled:bg-slate-100 disabled:text-gray-500 transition-all"
               />
             </div>
@@ -157,7 +141,7 @@ export default function AdminLoginClient() {
                 name="password"
                 type="password"
                 required
-                disabled={isLoginPending || isSignupPending}
+                disabled={isLoginPending}
                 className="block w-full rounded-2xl border-2 border-slate-200 px-5 py-4 text-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-100 focus:outline-none disabled:bg-slate-100 disabled:text-gray-500 transition-all"
               />
             </div>
@@ -166,7 +150,7 @@ export default function AdminLoginClient() {
           <div className="flex flex-col gap-3 mt-4">
             <button
               formAction={loginAction}
-              disabled={isLoginPending || isSignupPending}
+              disabled={isLoginPending}
               className="w-full rounded-2xl bg-blue-600 px-6 py-5 text-2xl font-black text-white hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 disabled:bg-blue-300 flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-200 cursor-pointer"
             >
               {isLoginPending ? (
