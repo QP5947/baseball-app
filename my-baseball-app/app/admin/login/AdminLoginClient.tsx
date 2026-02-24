@@ -12,6 +12,18 @@ export default function AdminLoginClient() {
     FormData
   >(login, undefined);
 
+  // URLクエリのエラーメッセージを表示
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const errorDescription = searchParams.get("error_description");
+    if (errorDescription) {
+      toast.error(errorDescription);
+      // エラー表示後にクエリパラメータを削除
+      const newUrl = `${window.location.pathname}`;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, []);
+
   // ログインのトースト表示・成功時遷移
   useEffect(() => {
     if (loginState) {
@@ -36,7 +48,7 @@ export default function AdminLoginClient() {
   // SNSログイン
   const handleSocialLogin = async (provider: "google" | "facebook" | "x") => {
     try {
-      const callbackUrl = `${window.location.origin}/auth/callback?next=/admin/login`;
+      const callbackUrl = `${window.location.origin}/auth/callback?next=/admin/dashboard&flow=login&origin=/admin/login`;
       const options: any = {
         redirectTo: callbackUrl,
       };
@@ -84,7 +96,8 @@ export default function AdminLoginClient() {
           <button
             type="button"
             onClick={() => handleSocialLogin("facebook")}
-            className="w-full rounded-2xl bg-[#1877F2] px-6 py-4 text-xl font-bold text-white hover:opacity-90 flex items-center justify-center gap-3 transition-all active:scale-95 cursor-pointer"
+            disabled={true}
+            className="w-full rounded-2xl bg-[#1877F2] px-6 py-4 text-xl font-bold text-white hover:opacity-90 flex items-center justify-center gap-3 transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <img
               src="https://www.facebook.com/favicon.ico"
@@ -96,6 +109,7 @@ export default function AdminLoginClient() {
           <button
             type="button"
             onClick={() => handleSocialLogin("x")}
+            disabled={true}
             className="w-full rounded-2xl bg-black px-6 py-4 text-xl font-bold text-white hover:opacity-90 flex items-center justify-center gap-3 transition-all active:scale-95 cursor-pointer"
           >
             <span className="text-2xl">𝕏</span>

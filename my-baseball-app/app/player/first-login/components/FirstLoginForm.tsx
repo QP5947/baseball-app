@@ -26,6 +26,15 @@ export default function FirstLoginForm() {
     state?.playerId || "",
   );
   const [loading, setLoading] = useState(false);
+  const [provider, setProvider] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setProvider(user?.app_metadata?.provider);
+    };
+    fetchUser();
+  }, [supabase]);
 
   const ERROR_MESSAGES: Record<string, string> = {
     missing: "すべての項目を入力してください。",
@@ -194,6 +203,7 @@ export default function FirstLoginForm() {
           </div>
         </div>
 
+        { (provider === 'email' || provider === undefined ) && (
         <div>
           <label htmlFor="password" className="block font-medium text-gray-700">
             パスワード
@@ -202,12 +212,14 @@ export default function FirstLoginForm() {
             id="password"
             name="password"
             type="password"
-            required
+            required={provider === 'email'}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none"
             placeholder="8文字以上を推奨"
           />
         </div>
+        )}
 
+        { (provider === 'email' || provider === undefined ) && (
         <div>
           <label
             htmlFor="password_confirm"
@@ -219,10 +231,11 @@ export default function FirstLoginForm() {
             id="password_confirm"
             name="password_confirm"
             type="password"
-            required
+            required={provider === 'email'}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none"
           />
         </div>
+        )}
       </div>
 
       <button

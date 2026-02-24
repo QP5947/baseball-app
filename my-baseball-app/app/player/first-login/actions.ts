@@ -32,7 +32,7 @@ export type FirstLoginState =
 export async function completeFirstLogin(
   state: FirstLoginState,
   formData: FormData,
-): Promise<FirstLoginResult> {
+): Promise<FirstLoginState> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -48,18 +48,26 @@ export async function completeFirstLogin(
   const password = String(formData.get("password") || "");
   const passwordConfirm = String(formData.get("password_confirm") || "");
 
-  if (!teamId || !playerId || !passphrase || !password || !passwordConfirm) {
-    return {
-      success: false,
-      message: "必要項目を入力してください",
-    };
-  }
+  const provider = user.app_metadata.provider;
 
-  if (password !== passwordConfirm) {
-    return {
-      success: false,
-      message: "パスワードが一致しません",
-    };
+  const returnState = {
+    teamId,
+    passphrase,
+    playerId,
+  };
+
+  if (provider === "email") {
+    if (!teamId || !playerId || !passphrase || !password || !passwordConfirm) {
+      return { ...returnState, error: "missing" };
+    }
+
+    if (password !== passwordConfirm) {
+      return { ...returnState, error: "password_mismatch" };
+    }
+  } else {
+    if (!teamId || !playerId || !passphrase) {
+      return { ...returnState, error: "missing" };
+    }
   }
 
   const { data: player, error } = await supabase
@@ -70,22 +78,18 @@ export async function completeFirstLogin(
     .maybeSingle();
 
   if (error || !player || player.user_id) {
-    return {
-      success: false,
-      message: "無効なリクエストです",
-    };
+    return { ...returnState, error: "invalid" };
   }
 
-  const { error: passwordError } = await supabase.auth.updateUser({
-    password,
-  });
+  if (provider === "email") {
+    const { error: passwordError } = await supabase.auth.updateUser({
+      password,
+    });
 
-  if (passwordError) {
-    console.error("Password update error:", passwordError.message);
-    return {
-      success: false,
-      message: "パスワードの設定に失敗しました",
-    };
+    if (passwordError) {
+      console.error("Password update error:", passwordError.message);
+      return { ...returnState, error: "password" };
+    }
   }
 
   const { error: updateError } = await supabase
@@ -97,10 +101,7 @@ export async function completeFirstLogin(
 
   if (updateError) {
     console.error("First login update error:", updateError.message);
-    return {
-      success: false,
-      message: "登録に失敗しました",
-    };
+    return { ...returnState, error: "invalid" };
   }
 
   revalidatePath("/", "layout");

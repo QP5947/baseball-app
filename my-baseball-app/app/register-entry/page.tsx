@@ -17,6 +17,17 @@ export default function RegisterEntryPage() {
   });
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const errorDescription = searchParams.get("error_description");
+    if (errorDescription) {
+      toast.error(errorDescription);
+      // エラー表示後にクエリパラメータを削除
+      const newUrl = `${window.location.pathname}`;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, []);
+
+  useEffect(() => {
     if (state && !state.success && "email" in state) {
       setInputs({
         email: (state as any).email ?? "",
@@ -44,7 +55,7 @@ export default function RegisterEntryPage() {
   const handleSocialLogin = async (provider: "google" | "facebook" | "x") => {
     try {
       const options: any = {
-        redirectTo: `${window.location.origin}/auth/callback?next=/team-register`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/team-register&flow=signup&origin=/register-entry`,
       };
       if (provider === "facebook") {
         options.scopes = "public_profile,email";
@@ -91,7 +102,8 @@ export default function RegisterEntryPage() {
           <button
             type="button"
             onClick={() => handleSocialLogin("facebook")}
-            className="w-full rounded-2xl bg-[#1877F2] px-6 py-4 text-xl font-bold text-white hover:opacity-90 flex items-center justify-center gap-3 transition-all active:scale-95 cursor-pointer"
+            disabled={true}
+            className="w-full rounded-2xl bg-[#1877F2] px-6 py-4 text-xl font-bold text-white hover:opacity-90 flex items-center justify-center gap-3 transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <img
               src="https://www.facebook.com/favicon.ico"

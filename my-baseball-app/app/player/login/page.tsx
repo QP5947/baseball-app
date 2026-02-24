@@ -22,9 +22,5 @@ export default async function PlayerLoginPage() {
     redirect("/player/first-login");
   }
 
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-3 md:p-24">
-      <PlayerLoginForm />
-    </div>
-  );
+  return <PlayerLoginForm />;
 }

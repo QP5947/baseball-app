@@ -7,7 +7,6 @@ export default async function AdminLoginPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  console.log("AdminLoginPage user:", user);
 
   if (user) {
     const { data: myTeamId } = await supabase.rpc("get_my_team_id");
