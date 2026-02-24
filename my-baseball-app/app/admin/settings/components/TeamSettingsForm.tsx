@@ -172,13 +172,13 @@ export default function TeamSettingsForm() {
         />
       </div>
 
-      {/* パスフレーズ */}
+      {/* 合言葉 */}
       <div>
         <label
           htmlFor="passphrase"
           className="block text-sm font-medium text-gray-700"
         >
-          パスフレーズ
+          合言葉
         </label>
         <input
           type="text"
@@ -186,7 +186,7 @@ export default function TeamSettingsForm() {
           name="passphrase"
           defaultValue={team.passphrase || ""}
           className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-          placeholder="チームメンバーを招待する際のパスフレーズ"
+          placeholder="チームメンバーを招待する際の合言葉"
         />
       </div>
 

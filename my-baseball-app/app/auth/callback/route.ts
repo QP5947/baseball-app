@@ -1,42 +1,54 @@
+export const runtime = "nodejs";
+
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
-	let response = NextResponse.next({
-		request,
-	});
+  // Cookieを一時保存する配列
+  let cookiesToSet: { name: string; value: string; options?: any }[] = [];
 
-	const supabase = createServerClient(
-		process.env.NEXT_PUBLIC_SUPABASE_URL!,
-		process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-		{
-			cookies: {
-				getAll() {
-					return request.cookies.getAll();
-				},
-				setAll(cookiesToSet) {
-					cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-					response = NextResponse.next({ request });
-					cookiesToSet.forEach(({ name, value, options }) =>
-						response.cookies.set(name, value, options)
-					);
-				},
-			},
-		}
-	);
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(newCookies) {
+          cookiesToSet = newCookies;
+        },
+      },
+    },
+  );
 
-	const code = request.nextUrl.searchParams.get("code");
-	const next = request.nextUrl.searchParams.get("next") ?? "/player/first-login";
+  const code = request.nextUrl.searchParams.get("code");
+  const sessionResult = await supabase.auth.exchangeCodeForSession(code || "");
+  console.log("sessionResult", sessionResult);
 
-	if (code) {
-		await supabase.auth.exchangeCodeForSession(code);
-	}
+  // team-register/認証後はregister-entryへ、デフォルトは/player/first-login
+  let next = request.nextUrl.searchParams.get("next");
+  if (!next) {
+    const referer = request.headers.get("referer") || "";
+    if (referer.includes("team-register")) {
+      next = "/register-entry";
+    } else {
+      next = "/player/first-login";
+    }
+  }
 
-	const redirectUrl = request.nextUrl.clone();
-	redirectUrl.pathname = next;
-	redirectUrl.search = "";
+  if (code) {
+    await supabase.auth.exchangeCodeForSession(code);
+  }
 
-	const redirectResponse = NextResponse.redirect(redirectUrl);
-	response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
-	return redirectResponse;
+  const redirectUrl = request.nextUrl.clone();
+  redirectUrl.pathname = next;
+  redirectUrl.search = "";
+
+  const redirectResponse = NextResponse.redirect(redirectUrl);
+  // 必ずここでcookieをセット
+  cookiesToSet.forEach(({ name, value, options }) =>
+    redirectResponse.cookies.set(name, value, options),
+  );
+  return redirectResponse;
 }

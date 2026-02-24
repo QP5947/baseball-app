@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 export type LoginResult = {
   success: boolean;
   message: string;
+  errorType?: "auth" | "other";
 };
 
 export async function login(
@@ -24,12 +25,26 @@ export async function login(
 
   const { data: authData, error } =
     await supabase.auth.signInWithPassword(data);
-
   if (error || !authData.user) {
     console.error("Login error:", error?.message);
+    // 認証失敗（メールアドレスやパスワードが間違っている場合）
+    if (
+      error?.message === "Invalid login credentials" ||
+      error?.message?.includes("認証") ||
+      error?.code === "auth/invalid-credentials"
+    ) {
+      return {
+        success: false,
+        message:
+          "認証に失敗しました。メールアドレスまたはパスワードが正しくありません。",
+        errorType: "auth",
+      };
+    }
+    // その他のエラー
     return {
       success: false,
-      message: error?.message || "ログインに失敗しました",
+      message: error?.message || "ログイン時に予期しないエラーが発生しました。",
+      errorType: "other",
     };
   }
 

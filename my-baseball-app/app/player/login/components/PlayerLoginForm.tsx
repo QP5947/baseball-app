@@ -23,7 +23,16 @@ export default function PlayerLoginForm() {
       if (loginState.success) {
         toast.success(loginState.message);
       } else {
-        toast.error(loginState.message);
+        if (loginState.errorType === "auth") {
+          toast.error(
+            "認証に失敗しました。メールアドレスまたはパスワードが正しくありません。",
+          );
+        } else {
+          toast.error(
+            loginState.message ||
+              "ログイン時に予期しないエラーが発生しました。",
+          );
+        }
       }
     }
   }, [loginState]);
