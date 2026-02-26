@@ -84,6 +84,113 @@ const pitchingMetrics = [
   },
 ];
 
+// Helper to sum innings pitched
+const sumInnings = (ip1: number, ip2: number): number => {
+  const outs1 = Math.floor(ip1) * 3 + Math.round((ip1 % 1) * 10);
+  const outs2 = Math.floor(ip2) * 3 + Math.round((ip2 % 1) * 10);
+  const totalOuts = outs1 + outs2;
+  const fullInnings = Math.floor(totalOuts / 3);
+  const remainingOuts = totalOuts % 3;
+  return fullInnings + remainingOuts / 10;
+};
+
+// Helper to aggregate batting stats by date
+const aggregateBattingStats = (stats: any[]) => {
+  if (!stats || stats.length === 0) return [];
+  const grouped: { [date: string]: any } = {};
+  const sumFields = [
+    "g",
+    "pa",
+    "ab",
+    "r",
+    "h",
+    "h2b",
+    "h3b",
+    "hr",
+    "rbi",
+    "sb",
+    "cs",
+    "bb",
+    "hbp",
+    "so",
+    "gidp",
+  ];
+
+  stats.forEach((stat) => {
+    const date = stat.game_date;
+    if (!grouped[date]) {
+      grouped[date] = { game_date: date };
+      sumFields.forEach((field) => (grouped[date][field] = 0));
+    }
+
+    sumFields.forEach((field) => {
+      if (stat[field] != null) grouped[date][field] += stat[field];
+    });
+
+    // Preserve the latest cumulative stats from the view
+    grouped[date].avg = stat.avg;
+    grouped[date].obp = stat.obp;
+    grouped[date].slg = stat.slg;
+    grouped[date].ops = stat.ops;
+  });
+
+  return Object.values(grouped).sort(
+    (a, b) => new Date(a.game_date).getTime() - new Date(b.game_date).getTime(),
+  );
+};
+
+// Helper to aggregate pitching stats by date
+const aggregatePitchingStats = (stats: any[]) => {
+  if (!stats || stats.length === 0) return [];
+  const grouped: { [date: string]: any } = {};
+  const sumFields = [
+    "w",
+    "l",
+    "s",
+    "g",
+    "gs",
+    "cg",
+    "sho",
+    "ip",
+    "h",
+    "r",
+    "er",
+    "hr",
+    "bb",
+    "hbp",
+    "so",
+    "wp",
+    "bk",
+    "np",
+  ];
+
+  stats.forEach((stat) => {
+    const date = stat.game_date;
+    if (!grouped[date]) {
+      grouped[date] = { game_date: date };
+      sumFields.forEach((field) => (grouped[date][field] = 0));
+    }
+
+    sumFields.forEach((field) => {
+      if (stat[field] != null) {
+        if (field === "ip") {
+          grouped[date].ip = sumInnings(grouped[date].ip, stat.ip);
+        } else {
+          grouped[date][field] += stat[field];
+        }
+      }
+    });
+
+    // Preserve the latest cumulative stats from the view
+    grouped[date].era = stat.era;
+    grouped[date].whip = stat.whip;
+  });
+
+  return Object.values(grouped).sort(
+    (a, b) => new Date(a.game_date).getTime() - new Date(b.game_date).getTime(),
+  );
+};
+
 export default function PerformanceAnalysis() {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
@@ -133,9 +240,10 @@ export default function PerformanceAnalysis() {
 
         // 打撃成績を取得
         const battingResult = await getBattingStats(year);
+        const aggregatedBatting = aggregateBattingStats(battingResult.stats);
 
         // 日付をフォーマット
-        const formattedBattingData = battingResult.stats.map((stat: any) => ({
+        const formattedBattingData = aggregatedBatting.map((stat: any) => ({
           ...stat,
           match: new Date(stat.game_date).toLocaleDateString("ja-JP", {
             month: "numeric",
@@ -163,15 +271,16 @@ export default function PerformanceAnalysis() {
         // 投手成績を取得
         if (hasPitchingData) {
           const pitchingResult = await getPitchingStats(year);
-          const formattedPitchingData = pitchingResult.stats.map(
-            (stat: any) => ({
-              ...stat,
-              match: new Date(stat.game_date).toLocaleDateString("ja-JP", {
-                month: "numeric",
-                day: "numeric",
-              }),
-            }),
+          const aggregatedPitching = aggregatePitchingStats(
+            pitchingResult.stats,
           );
+          const formattedPitchingData = aggregatedPitching.map((stat: any) => ({
+            ...stat,
+            match: new Date(stat.game_date).toLocaleDateString("ja-JP", {
+              month: "numeric",
+              day: "numeric",
+            }),
+          }));
           setPitchingData(formattedPitchingData);
 
           // チーム平均（投手）を取得
@@ -412,7 +521,9 @@ export default function PerformanceAnalysis() {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 12, fill: "#94a3b8" }}
-                    allowDecimals={true}
+                    allowDecimals={
+                      !["h", "rbi", "hr", "so"].includes(yAxisKey)
+                    }
                     tickFormatter={(value) => {
                       // 率の指標は小数点以下3桁、その他は整数表示
                       if (
@@ -435,22 +546,26 @@ export default function PerformanceAnalysis() {
                       fontWeight: "bold",
                       color: "#1f2937",
                     }}
-                    formatter={(
-                      value: any,
-                      name: string | undefined,
-                      props: any,
-                    ) => {
-                      // 率の指標は小数点以下3桁、その他は整数表示
-                      const formattedValue = [
+                    formatter={(value: any, name: string | undefined) => {
+                      let formattedValue = value;
+                      const isRate = [
                         "avg",
                         "obp",
                         "slg",
                         "ops",
                         "era",
                         "whip",
-                      ].includes(yAxisKey)
-                        ? Number(value).toFixed(3)
-                        : value;
+                      ].includes(yAxisKey);
+
+                      if (isRate) {
+                        formattedValue = Number(value).toFixed(3);
+                      } else if (
+                        name === "チーム平均" &&
+                        typeof value === "number" &&
+                        value % 1 !== 0
+                      ) {
+                        formattedValue = Number(value).toFixed(3);
+                      }
 
                       return [formattedValue, name || ""];
                     }}

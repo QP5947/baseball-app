@@ -59,11 +59,11 @@ WITH batting_lines AS (
     
   FROM batting_result_details d
   JOIN at_bat_results r ON d.at_bat_result_no = r.no
-  JOIN games g ON d.game_id = g.id
+  JOIN games g ON d.game_id = g.id AND g.team_id = d.team_id
   INNER JOIN players p ON p.team_id = d.team_id AND p.id = d.player_id
-  LEFT JOIN leagues l ON l.id = g.league_id
-  LEFT JOIN grounds gr ON gr.id = g.ground_id
-  LEFT JOIN vsteams vs ON vs.id = g.vsteam_id
+  LEFT JOIN leagues l ON l.id = g.league_id AND l.team_id = d.team_id
+  LEFT JOIN grounds gr ON gr.id = g.ground_id AND gr.team_id = d.team_id
+  LEFT JOIN vsteams vs ON vs.id = g.vsteam_id AND vs.team_id = d.team_id
   WHERE g.sum_flg = true
     AND g.status NOT IN (0, 6)
   GROUP BY 

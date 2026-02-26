@@ -57,9 +57,9 @@ WITH base_stats AS (
   FROM pitching_results p
   INNER JOIN games g ON p.team_id = g.team_id AND p.game_id = g.id
   INNER JOIN players pl ON pl.team_id = p.team_id AND pl.id = p.player_id
-  LEFT JOIN leagues l ON l.id = g.league_id
-  LEFT JOIN grounds gr ON gr.id = g.ground_id
-  LEFT JOIN vsteams vs ON vs.id = g.vsteam_id
+  LEFT JOIN leagues l ON l.id = g.league_id AND l.team_id = g.team_id
+  LEFT JOIN grounds gr ON gr.id = g.ground_id AND gr.team_id = g.team_id
+  LEFT JOIN vsteams vs ON vs.id = g.vsteam_id AND vs.team_id = g.team_id
   WHERE g.sum_flg = true
     AND g.status NOT IN (0, 6)
 )
@@ -99,17 +99,17 @@ SELECT
   SUM(er) OVER w AS cum_er,
   -- WHIP計算（被安打＋与四球）÷投球イニング（累計） ※アウト数基準
   CASE 
-    WHEN SUM(outs) OVER w > 0 THEN ROUND(((SUM(h) OVER w + SUM(bb) OVER w)::numeric * 3 / SUM(outs) OVER w), 3)
+    WHEN SUM(outs) OVER w > 0 THEN ROUND(((SUM(h) OVER w + SUM(bb) OVER w) * 3.0 / SUM(outs) OVER w), 3)
     ELSE 0
   END AS whip,
   -- 防御率 = 失点 × 7 ÷ 投球イニング（累計） ※アウト数基準
   CASE 
-    WHEN SUM(outs) OVER w > 0 THEN ROUND((SUM(er) OVER w * 21 / SUM(outs) OVER w)::numeric, 2)
+    WHEN SUM(outs) OVER w > 0 THEN ROUND((SUM(er) OVER w * 21.0 / SUM(outs) OVER w), 2)
     ELSE 999.99
   END AS era,
   -- 奪三振率 = 奪三振 × 7 ÷ 投球イニング（累計） ※アウト数基準
   CASE 
-    WHEN SUM(outs) OVER w > 0 THEN ROUND((SUM(so) OVER w * 21 / SUM(outs) OVER w)::numeric, 2)
+    WHEN SUM(outs) OVER w > 0 THEN ROUND((SUM(so) OVER w * 21.0 / SUM(outs) OVER w), 2)
     ELSE 0
   END AS k7
 FROM base_stats

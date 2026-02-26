@@ -32,7 +32,7 @@ export async function getBattingStats(year: number) {
     .eq("player_id", player.id)
     .gte("game_date", `${year}-01-01`)
     .lte("game_date", `${year}-12-31`)
-    .order("game_date", { ascending: true });
+    .order("start_datetime", { ascending: true });
 
   if (error) {
     console.error("Error fetching batting stats:", error);
@@ -71,7 +71,7 @@ export async function getPitchingStats(year: number) {
     .eq("player_id", player.id)
     .gte("game_date", `${year}-01-01`)
     .lte("game_date", `${year}-12-31`)
-    .order("game_date", { ascending: true });
+    .order("start_datetime", { ascending: true });
 
   if (error) {
     console.error("Error fetching pitching stats:", error);
@@ -85,9 +85,9 @@ export async function getPitchingStats(year: number) {
 export async function getTeamBattingAverage(teamId: string, year: number) {
   const supabase = await createClient();
 
-  const { data: teamStats, error } = await supabase
+  const { data: teamDailyStats, error } = await supabase
     .from("mv_player_daily_stats")
-    .select("game_date, avg, h, hr, rbi")
+    .select("game_date, h, rbi, hr, ab") // Select fields for all metrics
     .eq("team_id", teamId)
     .gte("game_date", `${year}-01-01`)
     .lte("game_date", `${year}-12-31`);
@@ -96,41 +96,63 @@ export async function getTeamBattingAverage(teamId: string, year: number) {
     console.error("Error fetching team batting average:", error);
     return [];
   }
+  if (!teamDailyStats) {
+    return [];
+  }
 
-  // 日付ごとにグループ化して平均を計算
-  const groupedByDate: Record<
-    string,
-    { avg: number; h: number; hr: number; rbi: number; count: number }
-  > = {};
-
-  teamStats?.forEach((stat) => {
+  // 1. Sum up all stats for the entire team for each day.
+  const dailyTeamTotals: {
+    [date: string]: { h: number; rbi: number; hr: number; ab: number };
+  } = {};
+  teamDailyStats.forEach((stat) => {
     const date = stat.game_date;
-    if (!groupedByDate[date]) {
-      groupedByDate[date] = { avg: 0, h: 0, hr: 0, rbi: 0, count: 0 };
+    if (!dailyTeamTotals[date]) {
+      dailyTeamTotals[date] = { h: 0, rbi: 0, hr: 0, ab: 0 };
     }
-    groupedByDate[date].avg += stat.avg || 0;
-    groupedByDate[date].h += stat.h || 0;
-    groupedByDate[date].hr += stat.hr || 0;
-    groupedByDate[date].rbi += stat.rbi || 0;
-    groupedByDate[date].count += 1;
+    dailyTeamTotals[date].h += stat.h || 0;
+    dailyTeamTotals[date].rbi += stat.rbi || 0;
+    dailyTeamTotals[date].hr += stat.hr || 0;
+    dailyTeamTotals[date].ab += stat.ab || 0;
   });
 
-  return Object.entries(groupedByDate).map(([date, values]) => ({
-    game_date: date,
-    avg: values.avg / values.count,
-    h: values.h / values.count,
-    hr: values.hr / values.count,
-    rbi: values.rbi / values.count,
-  }));
+  const sortedDates = Object.keys(dailyTeamTotals).sort();
+
+  let cumulativeH = 0;
+  let cumulativeRbi = 0;
+  let cumulativeHr = 0;
+  let cumulativeTeamAb = 0;
+  let cumulativeTeamH = 0;
+  let dayCount = 0;
+  const result = [];
+
+  for (const date of sortedDates) {
+    dayCount++;
+    const dailyTotals = dailyTeamTotals[date];
+    cumulativeH += dailyTotals.h;
+    cumulativeRbi += dailyTotals.rbi;
+    cumulativeHr += dailyTotals.hr;
+    cumulativeTeamH += dailyTotals.h;
+    cumulativeTeamAb += dailyTotals.ab;
+
+    result.push({
+      game_date: date,
+      h: cumulativeH / dayCount,
+      rbi: cumulativeRbi / dayCount,
+      hr: cumulativeHr / dayCount,
+      avg: cumulativeTeamAb > 0 ? cumulativeTeamH / cumulativeTeamAb : 0,
+    });
+  }
+
+  return result;
 }
 
 // チーム平均（投手）を取得
 export async function getTeamPitchingAverage(teamId: string, year: number) {
   const supabase = await createClient();
 
-  const { data: teamStats, error } = await supabase
+  const { data: teamDailyPitchingStats, error } = await supabase
     .from("mv_player_daily_pitching_stats")
-    .select("game_date, era, whip, so, ip")
+    .select("game_date, so, ip, er, h, bb") // and other fields for whip
     .eq("team_id", teamId)
     .gte("game_date", `${year}-01-01`)
     .lte("game_date", `${year}-12-31`);
@@ -139,32 +161,71 @@ export async function getTeamPitchingAverage(teamId: string, year: number) {
     console.error("Error fetching team pitching average:", error);
     return [];
   }
+  if (!teamDailyPitchingStats) {
+    return [];
+  }
 
-  // 日付ごとにグループ化して平均を計算
-  const groupedByDate: Record<
-    string,
-    { era: number; whip: number; so: number; ip: number; count: number }
-  > = {};
+  const dailyTeamTotals: {
+    [date: string]: {
+      so: number;
+      outs: number;
+      er: number;
+      h: number;
+      bb: number;
+    };
+  } = {};
 
-  teamStats?.forEach((stat) => {
+  teamDailyPitchingStats.forEach((stat) => {
     const date = stat.game_date;
-    if (!groupedByDate[date]) {
-      groupedByDate[date] = { era: 0, whip: 0, so: 0, ip: 0, count: 0 };
+    if (!dailyTeamTotals[date]) {
+      dailyTeamTotals[date] = { so: 0, outs: 0, er: 0, h: 0, bb: 0 };
     }
-    groupedByDate[date].era += stat.era || 0;
-    groupedByDate[date].whip += stat.whip || 0;
-    groupedByDate[date].so += stat.so || 0;
-    groupedByDate[date].ip += stat.ip || 0;
-    groupedByDate[date].count += 1;
+    const ip_outs =
+      Math.floor(stat.ip || 0) * 3 + Math.round(((stat.ip || 0) % 1) * 10);
+    dailyTeamTotals[date].so += stat.so || 0;
+    dailyTeamTotals[date].outs += ip_outs;
+    dailyTeamTotals[date].er += stat.er || 0;
+    dailyTeamTotals[date].h += stat.h || 0;
+    dailyTeamTotals[date].bb += stat.bb || 0;
   });
 
-  return Object.entries(groupedByDate).map(([date, values]) => ({
-    game_date: date,
-    era: values.era / values.count,
-    whip: values.whip / values.count,
-    so: values.so / values.count,
-    ip: values.ip / values.count,
-  }));
+  const sortedDates = Object.keys(dailyTeamTotals).sort();
+
+  let cumulativeSo = 0;
+  let cumulativeOuts = 0;
+  let cumulativeEr = 0;
+  let cumulativeH = 0;
+  let cumulativeBb = 0;
+  let dayCount = 0;
+  const result = [];
+
+  for (const date of sortedDates) {
+    dayCount++;
+    const dailyTotals = dailyTeamTotals[date];
+    cumulativeSo += dailyTotals.so;
+    cumulativeOuts += dailyTotals.outs;
+    cumulativeEr += dailyTotals.er;
+    cumulativeH += dailyTotals.h;
+    cumulativeBb += dailyTotals.bb;
+
+    const cumulativeInnings = cumulativeOuts / 3;
+
+    const avgOutsPerDay = cumulativeOuts / dayCount;
+    const avgIpPerDay =
+      Math.floor(avgOutsPerDay / 3) + (Math.round(avgOutsPerDay) % 3) / 10;
+
+    result.push({
+      game_date: date,
+      so: cumulativeSo / dayCount,
+      ip: avgIpPerDay,
+      era: cumulativeInnings > 0 ? (cumulativeEr * 9) / cumulativeInnings : 0,
+      whip:
+        cumulativeInnings > 0
+          ? (cumulativeH + cumulativeBb) / cumulativeInnings
+          : 0,
+    });
+  }
+  return result;
 }
 
 // 投手成績が存在するかチェック

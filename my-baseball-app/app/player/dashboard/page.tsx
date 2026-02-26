@@ -65,24 +65,6 @@ export default function PlayerDashboardPage() {
         .limit(1)
         .maybeSingle();
 
-      // 日別打撃成績
-      const { data: dailyStatsRaw } = await supabase
-        .from("mv_player_daily_stats")
-        .select("game_date, h")
-        .eq("team_id", myTeamId)
-        .eq("player_id", player.id)
-        .order("game_date", { ascending: false })
-        .limit(5);
-
-      // グラフ用にデータを整形（日付を昇順に並び替え）
-      const dailyStats = (dailyStatsRaw || []).reverse().map((stat) => ({
-        game: new Date(stat.game_date).toLocaleDateString("ja-JP", {
-          month: "numeric",
-          day: "numeric",
-        }),
-        hits: stat.h || 0,
-      }));
-
       // 目標情報
       const currentYear = new Date().getFullYear();
       const { data: goals } = await supabase
@@ -108,6 +90,27 @@ export default function PlayerDashboardPage() {
         .eq("player_id", player.id)
         .gte("game_date", `${currentYear}-01-01`)
         .lte("game_date", `${currentYear}-12-31`);
+
+      // グラフ用に日ごとの安打数を集計
+      const statsByDate: Map<string, number> = new Map();
+      if (battingDailyStats) {
+        battingDailyStats.forEach((row) => {
+          const date = row.game_date;
+          statsByDate.set(date, (statsByDate.get(date) || 0) + (row.h || 0));
+        });
+      }
+
+      const sortedDates = Array.from(statsByDate.keys()).sort(
+        (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+      );
+
+      const dailyStats = sortedDates.map((date) => ({
+        game: new Date(date).toLocaleDateString("ja-JP", {
+          month: "numeric",
+          day: "numeric",
+        }),
+        hits: statsByDate.get(date) || 0,
+      }));
 
       // 投球統計を取得（daily MVをフロント集計）
       const { data: pitchingDailyStats } = await supabase
