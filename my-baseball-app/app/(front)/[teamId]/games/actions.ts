@@ -55,6 +55,9 @@ export async function fetchGamesForMonth(
       if (game.status === 1) result = "win";
       else if (game.status === 2) result = "lose";
       else if (game.status === 3) result = "draw";
+      else if (game.status === 4) result = "win_by_default";
+      else if (game.status === 5) result = "lose_by_default";
+      else if (game.status === 6) result = "cancelled";
       else result = "other";
     }
 

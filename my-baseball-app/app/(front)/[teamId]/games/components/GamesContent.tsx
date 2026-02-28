@@ -83,6 +83,12 @@ export default function GamesContent({
         return { color: loseColor, label: "敗戦" };
       case "draw":
         return { color: drawColor, label: "引分" };
+      case "win_by_default":
+        return { color: victoryColor, label: "不戦勝" };
+      case "lose_by_default":
+        return { color: loseColor, label: "不戦敗" };
+      case "cancelled":
+        return { color: "#94a3b8", label: "中止" };
       default:
         return { color: "#cbd5e1", label: "予定" };
     }
@@ -155,6 +161,7 @@ export default function GamesContent({
           ) : (
             games.map((game) => {
               const res = getResultStyle(game.result);
+              const showScore = ["win", "lose", "draw"].includes(game.result);
               return (
                 <Link
                   href={`./games/${game.id}?year=${displayYear}&month=${displayMonth}`}
@@ -214,9 +221,11 @@ export default function GamesContent({
                     <div className="flex items-center justify-end gap-3 md:gap-6 pt-4 sm:pt-0 border-t sm:border-t-0 border-slate-50 shrink-0 ml-auto">
                       {game.result !== "next" ? (
                         <div className="flex items-center gap-3 md:gap-4 shrink-0">
-                          <p className="text-3xl md:text-5xl font-black italic tracking-tighter text-slate-900 leading-none">
-                            {game.score}
-                          </p>
+                          {showScore && (
+                            <p className="text-3xl md:text-5xl font-black italic tracking-tighter text-slate-900 leading-none">
+                              {game.score}
+                            </p>
+                          )}
                           <div
                             className="text-white text-[10px] md:text-[11px] font-black px-4 py-1.5 md:px-5 md:py-2 rounded-full italic tracking-widest shadow-sm shrink-0 whitespace-nowrap"
                             style={{ backgroundColor: res.color }}
@@ -368,7 +377,9 @@ export default function GamesContent({
                           >
                             {game.result === "next"
                               ? "予定"
-                              : `${res?.label} ${game.score}`}
+                              : ["win", "lose", "draw"].includes(game.result)
+                                ? `${res?.label} ${game.score}`
+                                : res?.label}
                           </div>
                         </div>
                       </div>

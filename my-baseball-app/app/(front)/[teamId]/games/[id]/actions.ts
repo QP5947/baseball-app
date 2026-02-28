@@ -48,12 +48,14 @@ export async function fetchGameDetail(gameId: string, teamId: string) {
   ];
   const uniquePlayerIds = [...new Set(playerIds)];
 
+  const gameYear = new Date(game.start_datetime).getFullYear();
   const { data: players } = await supabase
-    .from("players")
-    .select("id,name")
-    .in("id", uniquePlayerIds);
+    .from("past_players")
+    .select("player_id,name")
+    .eq("year", gameYear)
+    .in("player_id", uniquePlayerIds);
 
-  const playerMap = new Map(players?.map((p) => [p.id, p.name]) || []);
+  const playerMap = new Map(players?.map((p) => [p.player_id, p.name]) || []);
 
   // スコア計算
   let topScore = 0;

@@ -158,9 +158,10 @@ export default async function GameDetailPage(props: {
         rbiCount += d.rbi;
       }
       if (d.inning && d.inning <= maxInnings) {
-        const directionLabel = d.direction_no
-          ? positionMap[d.direction_no]
-          : "";
+        const directionLabel =
+          d.at_bat_results?.with_direction && d.direction_no
+            ? positionMap[d.direction_no]
+            : "";
         const resultLabel = d.at_bat_results?.display_name || "";
         const rbiLabel = getCircledNumber(d.rbi);
         const displayText = [directionLabel, resultLabel, rbiLabel]
