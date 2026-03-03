@@ -1,5 +1,13 @@
 import Link from "next/link";
-import { ArrowLeft, Calendar, MapPin, Clock, ChevronDown } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Clock,
+  ChevronDown,
+  Wrench,
+  CircleCheck,
+} from "lucide-react";
 
 // 2025年度 前期日程のデータ
 const schedules = [
@@ -47,7 +55,7 @@ const schedules = [
       {
         id: 4,
         time: "08:30",
-        teamA: "ＫＪフェニックス",
+        teamA: "KJフェニックス",
         teamB: "イエローストーン",
         label: "第1試合",
         markA: true,
@@ -76,7 +84,7 @@ export default function SchedulePage() {
         />
         <div className="absolute inset-0 bg-blue-900/60 z-10"></div>
         <div className="relative z-30 text-center">
-          <h1 className="text-4xl md:text-6xl font-black italic text-white drop-shadow-lg">
+          <h1 className="text-4xl md:text-6xl font-black italic text-white drop-shadow-lg whitespace-nowrap">
             PENPEN LEAGUE
           </h1>
           <p className="text-white font-bold text-lg md:text-xl mt-2">日程表</p>
@@ -122,7 +130,7 @@ export default function SchedulePage() {
             <section key={dayIndex} className="relative">
               {/* 日付見出し */}
               <div className="top-4 z-20 mb-4 inline-block bg-zinc-800 text-white px-6 py-2 rounded-full shadow-lg font-black text-xl md:text-2xl">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 whitespace-nowrap">
                   <Calendar size={24} />
                   {day.date}
                 </div>
@@ -145,51 +153,53 @@ export default function SchedulePage() {
                       <div className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-black whitespace-nowrap">
                         {game.label}
                       </div>
-                      <div className="flex items-center gap-2 text-blue-600 font-bold text-xl">
+                      <div className="flex items-center gap-2 text-blue-600 font-bold text-xl whitespace-nowrap">
                         <Clock size={20} />
                         {game.time}〜
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-center gap-4 md:gap-8 w-full md:flex-1">
+                    <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4 w-full md:flex-1">
                       {/* チームA */}
-                      <div className="flex flex-col items-end flex-1">
-                        <div className="relative inline-block">
-                          {"markA" in game && game.markA && (
-                            <span className="absolute -top-5 left-0 bg-orange-500 text-white px-2 py-0.5 rounded font-black whitespace-nowrap text-xs md:text-sm">
-                              準備当番
-                            </span>
-                          )}
-                          <div className="text-xl md:text-2xl font-black text-right">
+                      <div className="flex flex-col items-center md:items-end flex-1 min-w-0 w-full">
+                        <div className="inline-block">
+                          <div className="text-base sm:text-lg md:text-xl font-black text-center md:text-right whitespace-nowrap">
+                            {"markA" in game && game.markA && (
+                              <Wrench
+                                size={18}
+                                className="inline-block mr-1 text-orange-500 align-[-3px]"
+                              />
+                            )}
                             {game.teamA}
                           </div>
                         </div>
                       </div>
 
                       {/* 中央：VS または スコア */}
-                      <div className="flex items-center justify-center min-w-25">
+                      <div className="flex items-center justify-center shrink-0 px-2">
                         {"scoreA" in game && "scoreB" in game ? (
-                          <div className="text-xl md:text-2xl font-black text-zinc-800 bg-zinc-50 px-4 py-1 rounded-xl border border-zinc-200">
+                          <div className="text-base sm:text-lg md:text-xl font-black text-zinc-800 bg-zinc-50 px-3 py-1 rounded-xl border border-zinc-200 whitespace-nowrap">
                             {game.scoreA} - {game.scoreB}
                           </div>
                         ) : (
-                          <div className="text-gray-300 font-black italic text-xl px-2">
+                          <div className="text-gray-300 font-black italic text-base sm:text-lg px-2 whitespace-nowrap">
                             VS
                           </div>
                         )}
                       </div>
 
                       {/* チームB */}
-                      <div className="flex flex-col items-start flex-1">
-                        <div className="relative inline-block">
-                          <div className="text-xl md:text-2xl font-black text-left">
+                      <div className="flex flex-col items-center md:items-start flex-1 min-w-0 w-full">
+                        <div className="inline-block">
+                          <div className="text-base sm:text-lg md:text-xl font-black text-center md:text-left whitespace-nowrap">
                             {game.teamB}
+                            {"markB" in game && game.markB && (
+                              <CircleCheck
+                                size={18}
+                                className="inline-block ml-1 text-orange-500 align-[-3px]"
+                              />
+                            )}
                           </div>
-                          {"markB" in game && game.markB && (
-                            <span className="absolute -top-5 left-0 bg-orange-500 text-white px-2 py-0.5 rounded font-black whitespace-nowrap text-xs md:text-sm">
-                              片付け当番
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -216,9 +226,23 @@ export default function SchedulePage() {
             </section>
           ))}
         </div>
+
+        <div className="text-sm md:text-base text-gray-500 font-bold px-1 mt-8">
+          <span className="inline-flex items-center mr-4">
+            <Wrench size={18} className="mr-1 text-orange-500" /> 準備当番
+          </span>
+          <span className="inline-flex items-center">
+            <CircleCheck size={18} className="mr-1 text-orange-500" />{" "}
+            片付け当番
+          </span>
+        </div>
       </div>
-      <footer className="mt-16 p-12 text-center bg-gray-100 border-t">
-        <p className="text-gray-400 mt-6 text-lg">© 2026 PENPEN LEAGUE</p>
+      <footer className="py-20 border-t border-slate-100 text-center bg-white">
+        <div className="opacity-30 font-black tracking-widest hover:underline">
+          <a href="/" target="_blank">
+            Powered by DashBase
+          </a>
+        </div>
       </footer>
     </main>
   );

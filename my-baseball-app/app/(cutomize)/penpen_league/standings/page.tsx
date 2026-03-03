@@ -401,8 +401,12 @@ export default function StandingsPage() {
         </div>
       </div>
 
-      <footer className="mt-16 p-12 text-center bg-gray-100 border-t">
-        <p className="text-gray-400 mt-6 text-lg">© 2026 PENPEN LEAGUE</p>
+      <footer className="py-20 border-t border-slate-100 text-center bg-white">
+        <div className="opacity-30 font-black tracking-widest hover:underline">
+          <a href="/" target="_blank">
+            Powered by DashBase
+          </a>
+        </div>
       </footer>
     </main>
   );
