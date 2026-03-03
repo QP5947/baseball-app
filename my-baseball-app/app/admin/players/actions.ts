@@ -162,7 +162,11 @@ export async function savePlayer(formData: FormData): Promise<ActionResult> {
     sort: sort,
   };
 
-  const { error } = await supabase.from("players").upsert(playerData);
+  const { data: upsertedPlayerData, error } = await supabase
+    .from("players")
+    .upsert(playerData)
+    .select()
+    .single();
 
   if (error) {
     console.error("Error creating player:", error.message);
@@ -173,8 +177,77 @@ export async function savePlayer(formData: FormData): Promise<ActionResult> {
     };
   }
 
+  // ---ここからpast_playersへの処理---
+  // 現在のシーズンを取得
+  const { data: settingData, error: settingError } = await supabase
+    .from("settings")
+    .select("setting_value")
+    .eq("setting_key", "current_season")
+    .single();
+
+  if (settingError) {
+    console.error("Error fetching current season:", settingError);
+    // エラーだがリダイレクトはして画面表示を優先
+    revalidatePath("/admin/players");
+    redirect("/admin/players");
+  }
+  const currentSeason = Number(settingData.setting_value);
+
+  // player_idとseasonで既存のpast_playerを検索
+  const { data: existingPastPlayer, error: selectError } = await supabase
+    .from("past_players")
+    .select("id")
+    .eq("player_id", upsertedPlayerData.id)
+    .eq("season", currentSeason)
+    .maybeSingle();
+
+  if (selectError) {
+    console.error("Error selecting past player:", selectError);
+    // エラーだがリダイレクトはして画面表示を優先
+    revalidatePath("/admin/players");
+    redirect("/admin/players");
+  }
+
+  // is_captainがnullの場合にfalseを設定
+  const isCaptain = upsertedPlayerData.is_captain ?? false;
+
+  if (existingPastPlayer) {
+    // 既存データがあれば更新
+    const { error: updateError } = await supabase
+      .from("past_players")
+      .update({
+        name: upsertedPlayerData.name,
+        number: upsertedPlayerData.no,
+        is_captain: isCaptain,
+        team_id: upsertedPlayerData.team_id,
+      })
+      .eq("id", existingPastPlayer.id);
+
+    if (updateError) {
+      console.error("Error updating past player:", updateError);
+      // エラーだがリダイレクトはして画面表示を優先
+    }
+  } else {
+    // なければ挿入
+    const { error: insertError } = await supabase.from("past_players").insert({
+      name: upsertedPlayerData.name,
+      number: upsertedPlayerData.no,
+      is_captain: isCaptain,
+      team_id: upsertedPlayerData.team_id,
+      player_id: upsertedPlayerData.id,
+      season: currentSeason,
+    });
+
+    if (insertError) {
+      console.error("Error inserting past player:", insertError);
+      // エラーだがリダイレクトはして画面表示を優先
+    }
+  }
+  // ---ここまで---
+
   // 一覧画面のデータを最新の状態に更新（キャッシュクリア）
   revalidatePath("/admin/players");
+  revalidatePath("/admin/pastPlayers");
 
   // 一覧画面へリダイレクト
   redirect("/admin/players");
@@ -214,6 +287,7 @@ export async function deletePlayer(formData: FormData): Promise<ActionResult> {
   }
 
   revalidatePath("/admin/players");
+  revalidatePath("/admin/pastPlayers");
 
   return {
     success: true,
