@@ -1,4 +1,5 @@
 import Link from "next/link";
+import OneDayResultForm from "./components/OneDayResultForm";
 import {
   CalendarPlus,
   ClipboardCheck,
@@ -49,6 +50,13 @@ export default function PenpenAdminHomePage() {
             メニューから入力対象を選択してください。
           </p>
         </header>
+
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 space-y-4">
+          <h2 className="text-xl font-black text-gray-900">
+            1日分の試合結果入力
+          </h2>
+          <OneDayResultForm />
+        </section>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {menuItems.map((item) => (

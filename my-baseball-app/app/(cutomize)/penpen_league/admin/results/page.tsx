@@ -28,11 +28,11 @@ type GameResult = {
   awayScore: string;
   homeScore: string;
   canceled: boolean;
-  note: string;
 };
 
 const SCHEDULE_STORAGE_KEY = "penpen_league_schedule_entries_v1";
 const RESULT_STORAGE_KEY = "penpen_league_result_entries_v1";
+const RESULT_ENTRY_NOTE_STORAGE_KEY = "penpen_league_result_entry_notes_v1";
 
 const periodLabelMap: Record<PeriodFilter, string> = {
   spring: "3〜5月",
@@ -66,6 +66,7 @@ export default function PenpenAdminResultsPage() {
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("spring");
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [resultMap, setResultMap] = useState<Record<string, GameResult>>({});
+  const [entryNoteMap, setEntryNoteMap] = useState<Record<string, string>>({});
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -84,6 +85,15 @@ export default function PenpenAdminResultsPage() {
         setResultMap(JSON.parse(resultRaw) as Record<string, GameResult>);
       } catch {
         setResultMap({});
+      }
+    }
+
+    const entryNoteRaw = localStorage.getItem(RESULT_ENTRY_NOTE_STORAGE_KEY);
+    if (entryNoteRaw) {
+      try {
+        setEntryNoteMap(JSON.parse(entryNoteRaw) as Record<string, string>);
+      } catch {
+        setEntryNoteMap({});
       }
     }
 
@@ -111,7 +121,6 @@ export default function PenpenAdminResultsPage() {
           awayScore: prev[targetKey]?.awayScore ?? "",
           homeScore: prev[targetKey]?.homeScore ?? "",
           canceled: prev[targetKey]?.canceled ?? false,
-          note: prev[targetKey]?.note ?? "",
         };
 
         if (key === "canceled") {
@@ -165,11 +174,28 @@ export default function PenpenAdminResultsPage() {
         awayScore: "",
         homeScore: "",
         canceled: false,
-        note: "",
       };
     });
 
     localStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(nextMap));
+
+    const noteRaw = localStorage.getItem(RESULT_ENTRY_NOTE_STORAGE_KEY);
+    let storedEntryNotes: Record<string, string> = {};
+    if (noteRaw) {
+      try {
+        storedEntryNotes = JSON.parse(noteRaw) as Record<string, string>;
+      } catch {
+        storedEntryNotes = {};
+      }
+    }
+
+    const entryKey = String(entry.id);
+    storedEntryNotes[entryKey] = entryNoteMap[entryKey] ?? "";
+    localStorage.setItem(
+      RESULT_ENTRY_NOTE_STORAGE_KEY,
+      JSON.stringify(storedEntryNotes),
+    );
+
     window.alert(`${entry.date} の試合結果を保存しました。`);
   };
 
@@ -285,7 +311,6 @@ export default function PenpenAdminResultsPage() {
                           awayScore: "",
                           homeScore: "",
                           canceled: false,
-                          note: "",
                         };
 
                         return (
@@ -297,104 +322,99 @@ export default function PenpenAdminResultsPage() {
                                 : "border-gray-200 bg-white"
                             }`}
                           >
-                            <div className="flex flex-wrap items-center gap-4">
-                              <p className="text-base font-bold text-gray-800">
-                                {game.startTime}〜{game.endTime}
-                              </p>
-                              <label className="inline-flex items-center gap-2 text-base font-bold text-gray-700">
+                            <div className="overflow-x-auto">
+                              <div className="inline-flex min-w-max items-center gap-4 whitespace-nowrap text-base font-bold text-gray-800">
+                                <p>
+                                  {game.startTime}〜{game.endTime}
+                                </p>
+                                <span className="inline-flex items-center gap-1">
+                                  {idx === 0 && (
+                                    <Wrench
+                                      size={16}
+                                      className="text-orange-500"
+                                    />
+                                  )}
+                                  {game.awayTeam}
+                                </span>
                                 <input
-                                  type="checkbox"
-                                  checked={result.canceled}
+                                  type="number"
+                                  min={0}
+                                  value={result.awayScore}
                                   onChange={(event) =>
                                     updateResult(
                                       entry.id,
                                       game.id,
-                                      "canceled",
-                                      event.target.checked,
+                                      "awayScore",
+                                      event.target.value,
                                     )
                                   }
-                                  className="h-4 w-4"
+                                  className="w-20 rounded-lg border border-gray-300 px-2 py-1"
+                                  disabled={result.canceled}
                                 />
-                                中止
-                              </label>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2 text-base font-bold text-gray-800">
-                              <span className="inline-flex items-center gap-1">
-                                {idx === 0 && (
-                                  <Wrench
-                                    size={16}
-                                    className="text-orange-500"
+                                <span>-</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={result.homeScore}
+                                  onChange={(event) =>
+                                    updateResult(
+                                      entry.id,
+                                      game.id,
+                                      "homeScore",
+                                      event.target.value,
+                                    )
+                                  }
+                                  className="w-20 rounded-lg border border-gray-300 px-2 py-1"
+                                  disabled={result.canceled}
+                                />
+                                <span className="inline-flex items-center gap-1">
+                                  {idx === entry.games.length - 1 && (
+                                    <CircleCheck
+                                      size={16}
+                                      className="text-orange-500"
+                                    />
+                                  )}
+                                  {game.homeTeam}
+                                </span>
+                                <label className="inline-flex items-center gap-2 text-base font-bold text-gray-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={result.canceled}
+                                    onChange={(event) =>
+                                      updateResult(
+                                        entry.id,
+                                        game.id,
+                                        "canceled",
+                                        event.target.checked,
+                                      )
+                                    }
+                                    className="h-4 w-4"
                                   />
-                                )}
-                                {game.awayTeam}
-                              </span>
-                              <input
-                                type="number"
-                                min={0}
-                                value={result.awayScore}
-                                onChange={(event) =>
-                                  updateResult(
-                                    entry.id,
-                                    game.id,
-                                    "awayScore",
-                                    event.target.value,
-                                  )
-                                }
-                                className="w-20 rounded-lg border border-gray-300 px-2 py-1"
-                                disabled={result.canceled}
-                              />
-                              <span>-</span>
-                              <input
-                                type="number"
-                                min={0}
-                                value={result.homeScore}
-                                onChange={(event) =>
-                                  updateResult(
-                                    entry.id,
-                                    game.id,
-                                    "homeScore",
-                                    event.target.value,
-                                  )
-                                }
-                                className="w-20 rounded-lg border border-gray-300 px-2 py-1"
-                                disabled={result.canceled}
-                              />
-                              <span className="inline-flex items-center gap-1">
-                                {idx === entry.games.length - 1 && (
-                                  <CircleCheck
-                                    size={16}
-                                    className="text-orange-500"
-                                  />
-                                )}
-                                {game.homeTeam}
-                              </span>
+                                  中止
+                                </label>
+                              </div>
                             </div>
-
-                            <label className="space-y-2 block">
-                              <span className="text-base font-bold text-gray-700">
-                                備考
-                              </span>
-                              <input
-                                type="text"
-                                value={result.note}
-                                onChange={(event) =>
-                                  updateResult(
-                                    entry.id,
-                                    game.id,
-                                    "note",
-                                    event.target.value,
-                                  )
-                                }
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
-                                placeholder="例: 雨天中止 / 特記事項"
-                              />
-                            </label>
                           </div>
                         );
                       })}
                     </div>
                   )}
+
+                  <label className="block">
+                    <input
+                      type="text"
+                      value={entryNoteMap[String(entry.id)] ?? ""}
+                      onChange={(event) =>
+                        setEntryNoteMap((prev) => ({
+                          ...prev,
+                          [String(entry.id)]: event.target.value,
+                        }))
+                      }
+                      aria-label="備考"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
+                      placeholder="備考（例: 雨天中止 / 特記事項）"
+                    />
+                  </label>
                 </article>
               ))}
             </div>
