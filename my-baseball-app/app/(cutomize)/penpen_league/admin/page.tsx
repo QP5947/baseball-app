@@ -21,12 +21,16 @@ const menuItems = [
     href: "/penpen_league/admin/results",
     icon: ClipboardCheck,
   },
-  { title: "大会管理", href: "#", icon: Trophy },
+  { title: "大会管理", href: "/penpen_league/admin/leagues", icon: Trophy },
   { title: "トーナメント管理", href: "#", icon: GitBranch },
-  { title: "大会規定管理", href: "#", icon: FileText },
-  { title: "チーム管理", href: "#", icon: Users },
-  { title: "球場管理", href: "#", icon: MapPin },
-  { title: "システム管理", href: "#", icon: Settings },
+  { title: "大会規定管理", href: "/penpen_league/admin/rules", icon: FileText },
+  { title: "チーム管理", href: "/penpen_league/admin/teams", icon: Users },
+  { title: "球場管理", href: "/penpen_league/admin/grounds", icon: MapPin },
+  {
+    title: "システム管理",
+    href: "/penpen_league/admin/system",
+    icon: Settings,
+  },
 ];
 
 export default function PenpenAdminHomePage() {

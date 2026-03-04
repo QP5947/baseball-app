@@ -429,6 +429,22 @@ export default function PenpenAdminSchedulePage() {
     setEditingEntryId(entry.id);
   };
 
+  const handleDeleteEntry = (entryId: number) => {
+    const target = entries.find((entry) => entry.id === entryId);
+    const confirmed = window.confirm(
+      `${target?.date ?? "この日程"} を削除します。よろしいですか？`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setEntries((prev) => prev.filter((entry) => entry.id !== entryId));
+    if (editingEntryId === entryId) {
+      resetForm();
+    }
+  };
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -499,8 +515,14 @@ export default function PenpenAdminSchedulePage() {
     window.alert(`${generated.length}件の対戦日程を自動作成しました。`);
   };
 
-  const renderScheduleForm = () => (
-    <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+  const renderScheduleForm = (isEditing = false) => (
+    <section
+      className={`rounded-2xl shadow-sm border p-6 md:p-8 ${
+        isEditing
+          ? "bg-blue-50 border-blue-400 ring-2 ring-blue-200"
+          : "bg-white border-gray-200"
+      }`}
+    >
       <form className="space-y-8" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="space-y-2 block">
@@ -509,7 +531,7 @@ export default function PenpenAdminSchedulePage() {
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
               required
             />
           </label>
@@ -552,122 +574,143 @@ export default function PenpenAdminSchedulePage() {
           )}
 
           <div className="space-y-4">
-            {games.map((game, idx) => (
-              <div
-                key={game.id}
-                className="border border-gray-200 rounded-xl p-4 md:p-5 space-y-4 bg-gray-50"
-              >
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-gray-800">
-                    第{idx + 1}試合
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => removeGame(game.id)}
-                    className="inline-flex items-center gap-1 text-red-600 font-bold disabled:opacity-40"
-                  >
-                    <Trash2 size={16} />
-                    削除
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  <label className="space-y-2 block">
-                    <span className="text-base font-bold text-gray-700">
-                      開始時間
-                    </span>
-                    <input
-                      type="time"
-                      value={game.startTime}
-                      onChange={(event) =>
-                        updateGame(game.id, "startTime", event.target.value)
-                      }
-                      step={900}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
-                      required
-                    />
-                  </label>
-
-                  <label className="space-y-2 block">
-                    <span className="text-base font-bold text-gray-700">
-                      終了時間
-                    </span>
-                    <input
-                      type="time"
-                      value={game.endTime}
-                      onChange={(event) =>
-                        updateGame(game.id, "endTime", event.target.value)
-                      }
-                      step={900}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
-                      required
-                    />
-                  </label>
-
-                  <label className="space-y-2 block">
-                    <span className="text-base font-bold text-gray-700">
-                      3塁側
-                    </span>
-                    <select
-                      value={game.awayTeam}
-                      onChange={(event) =>
-                        updateGame(game.id, "awayTeam", event.target.value)
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
-                      required
-                    >
-                      <option value="">選択してください</option>
-                      {TEAM_OPTIONS.map((team) => (
-                        <option key={team} value={team}>
-                          {team}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="space-y-2 block">
-                    <span className="text-base font-bold text-gray-700">
-                      1塁側
-                    </span>
-                    <select
-                      value={game.homeTeam}
-                      onChange={(event) =>
-                        updateGame(game.id, "homeTeam", event.target.value)
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
-                      required
-                    >
-                      <option value="">選択してください</option>
-                      {TEAM_OPTIONS.map((team) => (
-                        <option key={team} value={team}>
-                          {team}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="space-y-2 block">
-                    <span className="text-base font-bold text-gray-700">
-                      大会種類
-                    </span>
-                    <select
-                      value={game.gameType}
-                      onChange={(event) =>
-                        updateGame(
-                          game.id,
-                          "gameType",
-                          event.target.value as GameType,
-                        )
-                      }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
-                    >
-                      <option value="リーグ戦">リーグ戦</option>
-                      <option value="トーナメント">トーナメント</option>
-                    </select>
-                  </label>
-                </div>
+            {games.length > 0 && (
+              <div className="overflow-x-auto md:overflow-x-visible rounded-xl border border-gray-200 bg-white">
+                <table className="w-full min-w-245 md:min-w-full table-fixed text-base">
+                  <thead className="bg-gray-100 text-gray-700">
+                    <tr>
+                      <th className="w-16 px-3 py-2 text-left font-black">
+                        試合
+                      </th>
+                      <th className="w-32 px-3 py-2 text-left font-black">
+                        開始時間
+                      </th>
+                      <th className="w-32 px-3 py-2 text-left font-black">
+                        終了時間
+                      </th>
+                      <th className="w-52 px-3 py-2 text-left font-black">
+                        3塁側
+                      </th>
+                      <th className="w-52 px-3 py-2 text-left font-black">
+                        1塁側
+                      </th>
+                      <th className="w-32 px-3 py-2 text-left font-black">
+                        大会種類
+                      </th>
+                      <th className="w-16 px-3 py-2 text-left font-black">
+                        操作
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {games.map((game, idx) => (
+                      <tr key={game.id} className="border-t border-gray-200">
+                        <td className="px-3 py-2 font-bold text-gray-800 whitespace-nowrap">
+                          第{idx + 1}試合
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="time"
+                            value={game.startTime}
+                            onChange={(event) =>
+                              updateGame(
+                                game.id,
+                                "startTime",
+                                event.target.value,
+                              )
+                            }
+                            step={900}
+                            className="w-full min-w-0 rounded-lg border border-gray-300 px-3 py-2 bg-white"
+                            required
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="time"
+                            value={game.endTime}
+                            onChange={(event) =>
+                              updateGame(game.id, "endTime", event.target.value)
+                            }
+                            step={900}
+                            className="w-full min-w-0 rounded-lg border border-gray-300 px-3 py-2 bg-white"
+                            required
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={game.awayTeam}
+                            onChange={(event) =>
+                              updateGame(
+                                game.id,
+                                "awayTeam",
+                                event.target.value,
+                              )
+                            }
+                            className="w-full min-w-0 rounded-lg border border-gray-300 px-3 py-2 bg-white"
+                            required
+                          >
+                            <option value="">選択してください</option>
+                            {TEAM_OPTIONS.map((team) => (
+                              <option key={team} value={team}>
+                                {team}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={game.homeTeam}
+                            onChange={(event) =>
+                              updateGame(
+                                game.id,
+                                "homeTeam",
+                                event.target.value,
+                              )
+                            }
+                            className="w-full min-w-0 rounded-lg border border-gray-300 px-3 py-2 bg-white"
+                            required
+                          >
+                            <option value="">選択してください</option>
+                            {TEAM_OPTIONS.map((team) => (
+                              <option key={team} value={team}>
+                                {team}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={game.gameType}
+                            onChange={(event) =>
+                              updateGame(
+                                game.id,
+                                "gameType",
+                                event.target.value as GameType,
+                              )
+                            }
+                            className="w-full min-w-0 rounded-lg border border-gray-300 px-3 py-2 bg-white"
+                          >
+                            <option value="リーグ戦">リーグ戦</option>
+                            <option value="トーナメント">トーナメント</option>
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => removeGame(game.id)}
+                            aria-label="試合を削除"
+                            title="削除"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-40"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
+            )}
             {games.length === 0 && (
               <p className="text-base font-bold text-gray-600">休み</p>
             )}
@@ -712,8 +755,17 @@ export default function PenpenAdminSchedulePage() {
             type="submit"
             className="w-full md:w-auto bg-blue-600 text-white font-black px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            {editingEntryId !== null ? "入力内容を更新" : "入力内容を保存"}
+            {editingEntryId !== null ? "保存" : "入力内容を保存"}
           </button>
+          {editingEntryId !== null && (
+            <button
+              type="button"
+              onClick={() => handleDeleteEntry(editingEntryId)}
+              className="w-full md:w-auto bg-red-600 text-white font-black px-6 py-3 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              削除
+            </button>
+          )}
           {editingEntryId !== null && (
             <button
               type="button"
@@ -750,18 +802,18 @@ export default function PenpenAdminSchedulePage() {
         </div>
 
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 space-y-4">
-          <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setIsAutoGenerateOpen((prev) => !prev)}
+            className="w-full flex items-center justify-between gap-3 text-left cursor-pointer"
+          >
             <h2 className="text-xl font-black text-gray-900">
               対戦日程を自動作成
             </h2>
-            <button
-              type="button"
-              onClick={() => setIsAutoGenerateOpen((prev) => !prev)}
-              className="text-base font-bold text-blue-700 hover:underline"
-            >
+            <span className="text-base font-bold text-blue-700 hover:underline">
               {isAutoGenerateOpen ? "閉じる" : "開く"}
-            </button>
-          </div>
+            </span>
+          </button>
 
           {isAutoGenerateOpen && (
             <>
@@ -819,16 +871,16 @@ export default function PenpenAdminSchedulePage() {
 
         {editingEntryId === null && (
           <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 space-y-4">
-            <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setIsNewEntryOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between gap-3 text-left cursor-pointer"
+            >
               <h2 className="text-xl font-black text-gray-900">新規入力欄</h2>
-              <button
-                type="button"
-                onClick={() => setIsNewEntryOpen((prev) => !prev)}
-                className="text-base font-bold text-blue-700 hover:underline"
-              >
+              <span className="text-base font-bold text-blue-700 hover:underline">
                 {isNewEntryOpen ? "閉じる" : "開く"}
-              </button>
-            </div>
+              </span>
+            </button>
             {isNewEntryOpen && renderScheduleForm()}
           </section>
         )}
@@ -864,109 +916,138 @@ export default function PenpenAdminSchedulePage() {
             <div className="space-y-4">
               {filteredEntries.map((entry) => (
                 <div key={entry.id} className="space-y-4">
-                  <article
-                    className={`rounded-xl border p-4 space-y-3 ${
-                      editingEntryId === entry.id
-                        ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200"
-                        : entry.games.length === 0
+                  {editingEntryId === entry.id ? (
+                    renderScheduleForm(true)
+                  ) : (
+                    <article
+                      className={`rounded-xl border p-4 space-y-3 ${
+                        entry.games.length === 0
                           ? "border-red-200 bg-red-50"
                           : "border-gray-200 bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base font-bold text-gray-800">
-                        <span className="inline-flex items-center gap-1 text-xl md:text-2xl font-black text-gray-900">
-                          <Calendar size={18} className="text-blue-600" />
-                          {entry.date}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin size={18} className="text-blue-600" />
-                          球場: {entry.stadium}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {editingEntryId === entry.id && (
-                          <span className="text-base font-black text-blue-700">
-                            編集中
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base font-bold text-gray-800">
+                          <span className="inline-flex items-center gap-1 text-xl md:text-2xl font-black text-gray-900">
+                            <Calendar size={18} className="text-blue-600" />
+                            {entry.date}
                           </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(entry)}
-                          className="text-base font-bold text-blue-700 hover:underline"
-                        >
-                          編集
-                        </button>
-                      </div>
-                    </div>
-
-                    {entry.games.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base font-bold text-gray-700">
-                        <span className="inline-flex items-center gap-1">
-                          <Wrench size={18} className="text-orange-500" />
-                          準備当番: {entry.games[0].awayTeam}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <CircleCheck size={18} className="text-orange-500" />
-                          片付け当番:{" "}
-                          {entry.games[entry.games.length - 1].homeTeam}
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      {entry.games.length === 0 ? (
-                        <p className="text-base font-bold text-gray-600">
-                          休み
-                        </p>
-                      ) : (
-                        entry.games.map((game, idx) => (
-                          <div
-                            key={`${entry.id}-${game.id}`}
-                            className="rounded-lg border border-gray-200 bg-white p-3"
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin size={18} className="text-blue-600" />
+                            球場: {entry.stadium}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(entry)}
+                            className="text-base font-bold text-blue-700 hover:underline"
                           >
-                            <p className="text-base font-bold text-gray-800">
-                              第{idx + 1}試合
-                            </p>
-                            <p className="text-base text-gray-700 mt-1">
-                              {game.startTime}〜{game.endTime} /{" "}
-                              <span className="inline-flex items-center gap-1">
-                                {idx === 0 && (
-                                  <Wrench
-                                    size={16}
-                                    className="text-orange-500"
-                                  />
-                                )}
-                                {game.awayTeam}
-                              </span>{" "}
-                              vs{" "}
-                              <span className="inline-flex items-center gap-1">
-                                {idx === entry.games.length - 1 && (
-                                  <CircleCheck
-                                    size={16}
-                                    className="text-orange-500"
-                                  />
-                                )}
-                                {game.homeTeam}
-                              </span>{" "}
-                              / {game.gameType}
-                            </p>
-                          </div>
-                        ))
-                      )}
-                    </div>
+                            編集
+                          </button>
+                        </div>
+                      </div>
 
-                    <p className="text-base text-gray-700">
-                      休みチーム:{" "}
-                      {entry.restTeams.length > 0
-                        ? entry.restTeams.join("、")
-                        : "なし"}
-                    </p>
-                    <p className="text-base text-gray-700">
-                      備考: {entry.note.trim() ? entry.note : "なし"}
-                    </p>
-                  </article>
-                  {editingEntryId === entry.id && renderScheduleForm()}
+                      {entry.games.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base font-bold text-gray-700">
+                          <span className="inline-flex items-center gap-1">
+                            <Wrench size={18} className="text-orange-500" />
+                            準備当番: {entry.games[0].awayTeam}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <CircleCheck
+                              size={18}
+                              className="text-orange-500"
+                            />
+                            片付け当番:{" "}
+                            {entry.games[entry.games.length - 1].homeTeam}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        {entry.games.length === 0 ? (
+                          <p className="text-base font-bold text-gray-600">
+                            休み
+                          </p>
+                        ) : (
+                          <div className="overflow-x-auto md:overflow-x-visible rounded-lg border border-gray-200 bg-white">
+                            <table className="w-full min-w-190 md:min-w-full table-fixed text-base">
+                              <thead className="bg-gray-100 text-gray-700">
+                                <tr>
+                                  <th className="w-20 md:w-auto px-3 py-2 text-left font-black">
+                                    試合
+                                  </th>
+                                  <th className="w-36 md:w-auto px-3 py-2 text-left font-black">
+                                    時間
+                                  </th>
+                                  <th className="w-60 md:w-auto px-3 py-2 text-left font-black">
+                                    3塁側
+                                  </th>
+                                  <th className="w-60 md:w-auto px-3 py-2 text-left font-black">
+                                    1塁側
+                                  </th>
+                                  <th className="w-32 md:w-auto px-3 py-2 text-left font-black">
+                                    大会種類
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {entry.games.map((game, idx) => (
+                                  <tr
+                                    key={`${entry.id}-${game.id}`}
+                                    className="border-t border-gray-200"
+                                  >
+                                    <td className="px-3 py-2 font-bold text-gray-800 whitespace-nowrap">
+                                      第{idx + 1}試合
+                                    </td>
+                                    <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                                      {game.startTime}〜{game.endTime}
+                                    </td>
+                                    <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                                      <span className="inline-flex items-center gap-1">
+                                        {idx === 0 && (
+                                          <Wrench
+                                            size={16}
+                                            className="text-orange-500"
+                                          />
+                                        )}
+                                        {game.awayTeam}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                                      <span className="inline-flex items-center gap-1">
+                                        {idx === entry.games.length - 1 && (
+                                          <CircleCheck
+                                            size={16}
+                                            className="text-orange-500"
+                                          />
+                                        )}
+                                        {game.homeTeam}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                                      {game.gameType}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="text-base text-gray-700">
+                        休みチーム:{" "}
+                        {entry.restTeams.length > 0
+                          ? entry.restTeams.join("、")
+                          : "なし"}
+                      </p>
+                      <p className="text-base text-gray-700">
+                        備考: {entry.note.trim() ? entry.note : "なし"}
+                      </p>
+                    </article>
+                  )}
                 </div>
               ))}
             </div>
