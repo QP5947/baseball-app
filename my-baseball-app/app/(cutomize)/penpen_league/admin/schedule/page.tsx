@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, CircleCheck, MapPin, Plus, Trash2, Wrench } from "lucide-react";
+import {
+  Calendar,
+  CircleCheck,
+  MapPin,
+  Plus,
+  Trash2,
+  Wrench,
+} from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type GameType = "リーグ戦" | "トーナメント";
@@ -777,7 +784,9 @@ export default function PenpenAdminSchedulePage() {
                 </label>
 
                 <label className="space-y-2 block">
-                  <span className="text-base font-bold text-gray-700">球場</span>
+                  <span className="text-base font-bold text-gray-700">
+                    球場
+                  </span>
                   <select
                     value={autoStadium}
                     onChange={(event) => setAutoStadium(event.target.value)}
@@ -899,7 +908,8 @@ export default function PenpenAdminSchedulePage() {
                         </span>
                         <span className="inline-flex items-center gap-1">
                           <CircleCheck size={18} className="text-orange-500" />
-                          片付け当番: {entry.games[entry.games.length - 1].homeTeam}
+                          片付け当番:{" "}
+                          {entry.games[entry.games.length - 1].homeTeam}
                         </span>
                       </div>
                     )}

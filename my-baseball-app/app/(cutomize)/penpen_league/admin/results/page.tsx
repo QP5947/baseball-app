@@ -322,7 +322,10 @@ export default function PenpenAdminResultsPage() {
                             <div className="flex flex-wrap items-center gap-2 text-base font-bold text-gray-800">
                               <span className="inline-flex items-center gap-1">
                                 {idx === 0 && (
-                                  <Wrench size={16} className="text-orange-500" />
+                                  <Wrench
+                                    size={16}
+                                    className="text-orange-500"
+                                  />
                                 )}
                                 {game.awayTeam}
                               </span>
@@ -359,7 +362,10 @@ export default function PenpenAdminResultsPage() {
                               />
                               <span className="inline-flex items-center gap-1">
                                 {idx === entry.games.length - 1 && (
-                                  <CircleCheck size={16} className="text-orange-500" />
+                                  <CircleCheck
+                                    size={16}
+                                    className="text-orange-500"
+                                  />
                                 )}
                                 {game.homeTeam}
                               </span>
