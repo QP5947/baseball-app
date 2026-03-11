@@ -1,5 +1,6 @@
 import Link from "next/link";
 import OneDayResultForm from "./components/OneDayResultForm";
+import AdminLogoutButton from "./components/AdminLogoutButton";
 import {
   CalendarPlus,
   ClipboardCheck,
@@ -74,12 +75,7 @@ export default function PenpenAdminHomePage() {
         </section>
 
         <div>
-          <Link
-            href="/penpen_league"
-            className="inline-block text-blue-700 font-bold hover:underline"
-          >
-            ← PENPEN LEAGUE トップへ戻る
-          </Link>
+          <AdminLogoutButton />
         </div>
       </div>
     </main>

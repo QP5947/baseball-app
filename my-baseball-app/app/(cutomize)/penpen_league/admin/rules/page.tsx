@@ -1,143 +1,252 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { Check } from "lucide-react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type RuleBlock = {
-  id: number;
+  id: string;
   title: string;
   body: string;
+  isEnabled: boolean;
+  sortOrder: number;
 };
-
-const RULES_STORAGE_KEY = "penpen_league_rules_blocks_v1";
-
-const initialRules: RuleBlock[] = [
-  {
-    id: 1,
-    title: "試合時間",
-    body: "1試合2時間を目安とし、開始・終了時刻を厳守してください。",
-  },
-  {
-    id: 2,
-    title: "中止判断",
-    body: "雨天・グラウンド不良時は当日朝に代表者連絡で判断します。",
-  },
-];
 
 const normalizeRules = (items: RuleBlock[]) =>
   items.map((item) => ({
     id: item.id,
     title: item.title ?? "",
     body: item.body ?? "",
+    isEnabled: Boolean(item.isEnabled),
+    sortOrder: item.sortOrder ?? 0,
   }));
 
 export default function PenpenAdminRulesPage() {
-  const [rules, setRules] = useState<RuleBlock[]>(initialRules);
-  const [draftRules, setDraftRules] = useState<RuleBlock[]>(initialRules);
+  const supabase = createClient();
+
+  const [rules, setRules] = useState<RuleBlock[]>([]);
+  const [draftRules, setDraftRules] = useState<RuleBlock[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [newBody, setNewBody] = useState("");
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [savingRowId, setSavingRowId] = useState<string | null>(null);
+  const [savedRowIds, setSavedRowIds] = useState<Set<string>>(new Set());
+  const savedResetTimers = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
+
+  const markRowSaved = (rowId: string) => {
+    setSavedRowIds((prev) => {
+      const next = new Set(prev);
+      next.add(rowId);
+      return next;
+    });
+
+    const existingTimer = savedResetTimers.current[rowId];
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    savedResetTimers.current[rowId] = setTimeout(() => {
+      setSavedRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rowId);
+        return next;
+      });
+      delete savedResetTimers.current[rowId];
+    }, 1200);
+  };
 
   useEffect(() => {
-    const raw = localStorage.getItem(RULES_STORAGE_KEY);
-    if (raw) {
-      try {
-        const loaded = normalizeRules(JSON.parse(raw) as RuleBlock[]);
-        setRules(loaded);
-        setDraftRules(loaded);
-      } catch {
-        setRules(initialRules);
-        setDraftRules(initialRules);
+    const load = async () => {
+      const { data, error } = await supabase
+        .schema("penpen")
+        .from("rule_blocks")
+        .select("id, title, body, is_enabled, sort_order")
+        .order("sort_order", { ascending: true });
+
+      if (error) {
+        window.alert(`規定データの取得に失敗しました: ${error.message}`);
+        return;
       }
-    }
-    setIsHydrated(true);
+
+      const loaded = normalizeRules(
+        (data ?? []).map((item) => ({
+          id: item.id,
+          title: item.title,
+          body: item.body,
+          isEnabled: item.is_enabled,
+          sortOrder: item.sort_order,
+        })),
+      );
+
+      setRules(loaded);
+      setDraftRules(loaded);
+    };
+
+    void load();
+  }, [supabase]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(savedResetTimers.current).forEach((timerId) => {
+        clearTimeout(timerId);
+      });
+    };
   }, []);
 
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-    localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(rules));
-  }, [rules, isHydrated]);
-
-  const addRule = (event: FormEvent<HTMLFormElement>) => {
+  const addRule = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const title = newTitle.trim();
     const body = newBody.trim();
+    if (!title || !body) return;
 
-    if (!title || !body) {
+    const { data, error } = await supabase
+      .schema("penpen")
+      .from("rule_blocks")
+      .insert({
+        title,
+        body,
+        is_enabled: true,
+        sort_order: rules.length,
+      })
+      .select("id, title, body, is_enabled, sort_order")
+      .single();
+
+    if (error || !data) {
+      window.alert(`規定の追加に失敗しました: ${error?.message ?? "unknown"}`);
       return;
     }
 
-    const nextRule = { id: Date.now(), title, body };
+    const nextRule: RuleBlock = {
+      id: data.id,
+      title: data.title,
+      body: data.body,
+      isEnabled: data.is_enabled,
+      sortOrder: data.sort_order,
+    };
+
     setRules((prev) => [...prev, nextRule]);
     setDraftRules((prev) => [...prev, nextRule]);
     setNewTitle("");
     setNewBody("");
   };
 
-  const updateDraftTitle = (id: number, value: string) => {
+  const updateDraft = <K extends keyof RuleBlock>(
+    id: string,
+    key: K,
+    value: RuleBlock[K],
+  ) => {
     setDraftRules((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, title: value } : item)),
+      prev.map((item) => (item.id === id ? { ...item, [key]: value } : item)),
     );
+    setSavedRowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
-  const updateDraftBody = (id: number, value: string) => {
-    setDraftRules((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, body: value } : item)),
-    );
-  };
-
-  const saveRule = (id: number) => {
+  const saveRule = async (id: string) => {
     const target = draftRules.find((item) => item.id === id);
-    if (!target) {
-      return;
-    }
+    if (!target) return;
 
     const title = target.title.trim();
     const body = target.body.trim();
+    if (!title || !body) return;
 
-    if (!title || !body) {
-      return;
+    setSavingRowId(id);
+    try {
+      const { error } = await supabase
+        .schema("penpen")
+        .from("rule_blocks")
+        .update({
+          title,
+          body,
+          is_enabled: target.isEnabled,
+        })
+        .eq("id", id);
+
+      if (error) {
+        window.alert(`規定の保存に失敗しました: ${error.message}`);
+        return;
+      }
+
+      setRules((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, title, body, isEnabled: target.isEnabled }
+            : item,
+        ),
+      );
+      setDraftRules((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, title, body, isEnabled: target.isEnabled }
+            : item,
+        ),
+      );
+      markRowSaved(id);
+    } finally {
+      setSavingRowId(null);
     }
-
-    setRules((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, title, body } : item)),
-    );
-
-    setDraftRules((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, title, body } : item)),
-    );
   };
 
-  const deleteRule = (id: number) => {
+  const deleteRule = async (id: string) => {
     const target = rules.find((item) => item.id === id);
     const confirmed = window.confirm(
       `${target?.title ?? "この規定"} を削除します。よろしいですか？`,
     );
+    if (!confirmed) return;
 
-    if (!confirmed) {
+    const { error } = await supabase
+      .schema("penpen")
+      .from("rule_blocks")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      window.alert(`規定の削除に失敗しました: ${error.message}`);
       return;
     }
 
     setRules((prev) => prev.filter((item) => item.id !== id));
     setDraftRules((prev) => prev.filter((item) => item.id !== id));
+    setSavedRowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+
+    const existingTimer = savedResetTimers.current[id];
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      delete savedResetTimers.current[id];
+    }
   };
 
-  const cancelRuleChanges = (id: number) => {
+  const cancelRuleChanges = (id: string) => {
     const saved = rules.find((item) => item.id === id);
-    if (!saved) {
-      return;
-    }
+    if (!saved) return;
 
     setDraftRules((prev) =>
       prev.map((item) =>
         item.id === id
-          ? { ...item, title: saved.title, body: saved.body }
+          ? {
+              ...item,
+              title: saved.title,
+              body: saved.body,
+              isEnabled: saved.isEnabled,
+            }
           : item,
       ),
     );
+    setSavedRowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
   return (
@@ -193,7 +302,7 @@ export default function PenpenAdminRulesPage() {
 
             <button
               type="submit"
-              className="bg-blue-600 text-white font-black px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-blue-600 text-white font-black px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
             >
               追加
             </button>
@@ -201,11 +310,7 @@ export default function PenpenAdminRulesPage() {
         </section>
 
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-black text-gray-900">
-              規定ブロック一覧
-            </h2>
-          </div>
+          <h2 className="text-xl font-black text-gray-900">規定ブロック一覧</h2>
 
           {rules.length === 0 ? (
             <p className="mt-4 text-base text-gray-500">
@@ -235,7 +340,7 @@ export default function PenpenAdminRulesPage() {
                           type="text"
                           value={draft.title}
                           onChange={(event) =>
-                            updateDraftTitle(rule.id, event.target.value)
+                            updateDraft(rule.id, "title", event.target.value)
                           }
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
                         />
@@ -248,33 +353,56 @@ export default function PenpenAdminRulesPage() {
                         <textarea
                           value={draft.body}
                           onChange={(event) =>
-                            updateDraftBody(rule.id, event.target.value)
+                            updateDraft(rule.id, "body", event.target.value)
                           }
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
                           rows={5}
                         />
+                      </label>
+
+                      <label className="inline-flex items-center gap-2 text-base font-bold text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={draft.isEnabled}
+                          onChange={(event) =>
+                            updateDraft(
+                              rule.id,
+                              "isEnabled",
+                              event.target.checked,
+                            )
+                          }
+                          className="h-4 w-4"
+                        />
+                        公開する
                       </label>
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => saveRule(rule.id)}
-                        className="w-full md:w-auto bg-blue-600 text-white font-black px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                        onClick={() => void saveRule(rule.id)}
+                        disabled={savingRowId === rule.id}
+                        className="w-full md:w-auto bg-blue-600 text-white font-black px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                       >
-                        保存
+                        <span className="inline-flex items-center gap-1.5">
+                          {savedRowIds.has(rule.id) ? (
+                            <Check size={16} />
+                          ) : (
+                            "保存"
+                          )}
+                        </span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => deleteRule(rule.id)}
-                        className="w-full md:w-auto bg-red-600 text-white font-black px-6 py-3 rounded-lg hover:bg-red-700 transition-colors"
+                        onClick={() => void deleteRule(rule.id)}
+                        className="w-full md:w-auto bg-red-600 text-white font-black px-6 py-3 rounded-lg hover:bg-red-700 transition-colors cursor-pointer"
                       >
                         削除
                       </button>
                       <button
                         type="button"
                         onClick={() => cancelRuleChanges(rule.id)}
-                        className="w-full md:w-auto bg-gray-200 text-gray-800 font-black px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                        className="w-full md:w-auto bg-gray-200 text-gray-800 font-black px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors cursor-pointer"
                       >
                         キャンセル
                       </button>

@@ -1,67 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { GripVertical, Trash2 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
-
-type GroundItem = {
-  id: number;
-  name: string;
-  isEnabled: boolean;
-  googleMapUrl: string;
-  note: string;
-};
-
-const GROUND_STORAGE_KEY = "penpen_league_grounds_v1";
-
-const initialGrounds: GroundItem[] = [
-  {
-    id: 1,
-    name: "ペンペン第一球場",
-    isEnabled: true,
-    googleMapUrl: "",
-    note: "",
-  },
-  {
-    id: 2,
-    name: "ペンペン第二球場",
-    isEnabled: true,
-    googleMapUrl: "",
-    note: "",
-  },
-  {
-    id: 3,
-    name: "みなと球場",
-    isEnabled: false,
-    googleMapUrl: "",
-    note: "",
-  },
-];
-
-const normalizeGrounds = (items: GroundItem[]) =>
-  items.map((item) => ({
-    id: item.id,
-    name: item.name ?? "",
-    isEnabled: Boolean(item.isEnabled),
-    googleMapUrl: item.googleMapUrl ?? "",
-    note: item.note ?? "",
-  }));
+import { Check, GripVertical, Save, Trash2 } from "lucide-react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { PenpenStadium } from "../../lib/penpenData";
 
 const reorderItems = (
-  items: GroundItem[],
-  sourceId: number,
-  targetId: number,
+  items: PenpenStadium[],
+  sourceId: string,
+  targetId: string,
 ) => {
-  if (sourceId === targetId) {
-    return items;
-  }
+  if (sourceId === targetId) return items;
 
   const sourceIndex = items.findIndex((item) => item.id === sourceId);
   const targetIndex = items.findIndex((item) => item.id === targetId);
-
-  if (sourceIndex < 0 || targetIndex < 0) {
-    return items;
-  }
+  if (sourceIndex < 0 || targetIndex < 0) return items;
 
   const copied = [...items];
   const [moved] = copied.splice(sourceIndex, 1);
@@ -70,97 +24,243 @@ const reorderItems = (
 };
 
 export default function PenpenAdminGroundsPage() {
-  const [grounds, setGrounds] = useState<GroundItem[]>(initialGrounds);
-  const [draggingId, setDraggingId] = useState<number | null>(null);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const supabase = createClient();
+
+  const [grounds, setGrounds] = useState<PenpenStadium[]>([]);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [newGroundName, setNewGroundName] = useState("");
+  const [newGroundAddress, setNewGroundAddress] = useState("");
   const [newGroundMapUrl, setNewGroundMapUrl] = useState("");
   const [newGroundNote, setNewGroundNote] = useState("");
   const [newGroundEnabled, setNewGroundEnabled] = useState(true);
+  const [savingRowId, setSavingRowId] = useState<string | null>(null);
+  const [dirtyRowIds, setDirtyRowIds] = useState<Set<string>>(new Set());
+  const [savedRowIds, setSavedRowIds] = useState<Set<string>>(new Set());
+  const savedResetTimers = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
+
+  const markRowSaved = (rowId: string) => {
+    setSavedRowIds((prev) => {
+      const next = new Set(prev);
+      next.add(rowId);
+      return next;
+    });
+
+    const existingTimer = savedResetTimers.current[rowId];
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    savedResetTimers.current[rowId] = setTimeout(() => {
+      setSavedRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rowId);
+        return next;
+      });
+      delete savedResetTimers.current[rowId];
+    }, 1200);
+  };
 
   useEffect(() => {
-    const raw = localStorage.getItem(GROUND_STORAGE_KEY);
-    if (raw) {
-      try {
-        setGrounds(normalizeGrounds(JSON.parse(raw) as GroundItem[]));
-      } catch {
-        setGrounds(initialGrounds);
+    const load = async () => {
+      const { data, error } = await supabase
+        .schema("penpen")
+        .from("stadiums")
+        .select(
+          "id, name, address, google_map_url, note, is_enabled, sort_order",
+        )
+        .order("sort_order", { ascending: true });
+
+      if (error) {
+        window.alert(`球場データの取得に失敗しました: ${error.message}`);
+        return;
       }
-    }
-    setIsHydrated(true);
+
+      setGrounds(
+        (data ?? []).map((item) => ({
+          id: item.id,
+          name: item.name,
+          address: item.address ?? "",
+          googleMapUrl: item.google_map_url ?? "",
+          note: item.note ?? "",
+          isEnabled: item.is_enabled,
+          sortOrder: item.sort_order,
+        })),
+      );
+      setDirtyRowIds(new Set());
+    };
+
+    void load();
+  }, [supabase]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(savedResetTimers.current).forEach((timerId) => {
+        clearTimeout(timerId);
+      });
+    };
   }, []);
 
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
+  const saveGrounds = async (targetGrounds: PenpenStadium[] = grounds) => {
+    const payload = targetGrounds.map((item, index) => ({
+      id: item.id,
+      name: item.name.trim(),
+      address: item.address.trim() || null,
+      google_map_url: item.googleMapUrl.trim() || null,
+      note: item.note.trim() || null,
+      is_enabled: item.isEnabled,
+      sort_order: index,
+    }));
+
+    const { error } = await supabase
+      .schema("penpen")
+      .from("stadiums")
+      .upsert(payload, { onConflict: "id" });
+
+    if (error) {
+      window.alert(`球場データの保存に失敗しました: ${error.message}`);
+      return false;
     }
-    localStorage.setItem(GROUND_STORAGE_KEY, JSON.stringify(grounds));
-  }, [grounds, isHydrated]);
 
-  const updateName = (id: number, value: string) => {
-    setGrounds((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, name: value } : item)),
-    );
+    setDirtyRowIds(new Set());
+
+    return true;
   };
 
-  const toggleEnabled = (id: number, checked: boolean) => {
-    setGrounds((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, isEnabled: checked } : item,
-      ),
-    );
+  const saveGroundRow = async (groundId: string) => {
+    const index = grounds.findIndex((item) => item.id === groundId);
+    if (index < 0) return;
+
+    const target = grounds[index];
+    setSavingRowId(groundId);
+    try {
+      const { error } = await supabase
+        .schema("penpen")
+        .from("stadiums")
+        .upsert(
+          {
+            id: target.id,
+            name: target.name.trim(),
+            address: target.address.trim() || null,
+            google_map_url: target.googleMapUrl.trim() || null,
+            note: target.note.trim() || null,
+            is_enabled: target.isEnabled,
+            sort_order: index,
+          },
+          { onConflict: "id" },
+        );
+
+      if (error) {
+        window.alert(`球場データの保存に失敗しました: ${error.message}`);
+        return;
+      }
+
+      setDirtyRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(groundId);
+        return next;
+      });
+      markRowSaved(groundId);
+    } finally {
+      setSavingRowId(null);
+    }
   };
 
-  const updateMapUrl = (id: number, value: string) => {
+  const updateField = <K extends keyof PenpenStadium>(
+    id: string,
+    key: K,
+    value: PenpenStadium[K],
+  ) => {
     setGrounds((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, googleMapUrl: value } : item,
-      ),
+      prev.map((item) => (item.id === id ? { ...item, [key]: value } : item)),
     );
+    setDirtyRowIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    setSavedRowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
-  const updateNote = (id: number, value: string) => {
-    setGrounds((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, note: value } : item)),
-    );
-  };
-
-  const addGround = (event: FormEvent<HTMLFormElement>) => {
+  const addGround = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const trimmedName = newGroundName.trim();
-    if (!trimmedName) {
+    if (!trimmedName) return;
+
+    const { data, error } = await supabase
+      .schema("penpen")
+      .from("stadiums")
+      .insert({
+        name: trimmedName,
+        address: newGroundAddress.trim() || null,
+        google_map_url: newGroundMapUrl.trim() || null,
+        note: newGroundNote.trim() || null,
+        is_enabled: newGroundEnabled,
+        sort_order: grounds.length,
+      })
+      .select("id, name, address, google_map_url, note, is_enabled, sort_order")
+      .single();
+
+    if (error || !data) {
+      window.alert(`球場の追加に失敗しました: ${error?.message ?? "unknown"}`);
       return;
     }
 
     setGrounds((prev) => [
       ...prev,
       {
-        id: Date.now(),
-        name: trimmedName,
-        isEnabled: newGroundEnabled,
-        googleMapUrl: newGroundMapUrl.trim(),
-        note: newGroundNote,
+        id: data.id,
+        name: data.name,
+        address: data.address ?? "",
+        googleMapUrl: data.google_map_url ?? "",
+        note: data.note ?? "",
+        isEnabled: data.is_enabled,
+        sortOrder: data.sort_order,
       },
     ]);
 
     setNewGroundName("");
+    setNewGroundAddress("");
     setNewGroundMapUrl("");
     setNewGroundNote("");
     setNewGroundEnabled(true);
   };
 
-  const deleteGround = (id: number) => {
+  const deleteGround = async (id: string) => {
     const target = grounds.find((item) => item.id === id);
     const confirmed = window.confirm(
       `${target?.name ?? "この球場"} を削除します。よろしいですか？`,
     );
+    if (!confirmed) return;
 
-    if (!confirmed) {
+    const { error } = await supabase
+      .schema("penpen")
+      .from("stadiums")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      window.alert(`球場の削除に失敗しました: ${error.message}`);
       return;
     }
 
     setGrounds((prev) => prev.filter((item) => item.id !== id));
+    setDirtyRowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setSavedRowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
   return (
@@ -207,6 +307,21 @@ export default function PenpenAdminGroundsPage() {
 
                   <label className="space-y-2 block">
                     <span className="text-base font-bold text-gray-700">
+                      住所
+                    </span>
+                    <input
+                      type="text"
+                      value={newGroundAddress}
+                      onChange={(event) =>
+                        setNewGroundAddress(event.target.value)
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
+                      placeholder="住所（任意）"
+                    />
+                  </label>
+
+                  <label className="space-y-2 block md:col-span-2">
+                    <span className="text-base font-bold text-gray-700">
                       GoogleMapURL
                     </span>
                     <input
@@ -249,7 +364,7 @@ export default function PenpenAdminGroundsPage() {
 
                   <button
                     type="submit"
-                    className="bg-blue-600 text-white font-black px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors"
+                    className="bg-blue-600 text-white font-black px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
                   >
                     追加
                   </button>
@@ -261,27 +376,33 @@ export default function PenpenAdminGroundsPage() {
               {grounds.map((ground, index) => (
                 <div
                   key={ground.id}
-                  draggable
-                  onDragStart={() => setDraggingId(ground.id)}
-                  onDragEnd={() => setDraggingId(null)}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => {
-                    if (draggingId === null) {
-                      return;
-                    }
-                    setGrounds((prev) =>
-                      reorderItems(prev, draggingId, ground.id),
+                    if (draggingId === null) return;
+                    const reordered = reorderItems(
+                      grounds,
+                      draggingId,
+                      ground.id,
                     );
+                    setGrounds(reordered);
                     setDraggingId(null);
+                    void saveGrounds(reordered);
                   }}
                   className={`rounded-xl border p-4 md:p-5 bg-gray-50 transition ${
                     draggingId === ground.id
                       ? "border-blue-400 bg-blue-50"
-                      : "border-gray-200"
-                  } cursor-grab active:cursor-grabbing`}
+                      : dirtyRowIds.has(ground.id)
+                        ? "border-amber-300 bg-amber-50"
+                        : "border-gray-200"
+                  }`}
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto_auto] items-start gap-4">
-                    <div className="inline-flex items-center gap-2 text-gray-500 font-bold cursor-grab">
+                  <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] gap-4">
+                    <div
+                      draggable
+                      onDragStart={() => setDraggingId(ground.id)}
+                      onDragEnd={() => setDraggingId(null)}
+                      className="inline-flex items-center gap-2 text-gray-500 font-bold cursor-grab active:cursor-grabbing"
+                    >
                       <GripVertical size={18} />
                       <span className="text-base">{index + 1}</span>
                     </div>
@@ -295,7 +416,25 @@ export default function PenpenAdminGroundsPage() {
                           type="text"
                           value={ground.name}
                           onChange={(event) =>
-                            updateName(ground.id, event.target.value)
+                            updateField(ground.id, "name", event.target.value)
+                          }
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
+                        />
+                      </label>
+
+                      <label className="space-y-2 block">
+                        <span className="text-base font-bold text-gray-700">
+                          住所
+                        </span>
+                        <input
+                          type="text"
+                          value={ground.address}
+                          onChange={(event) =>
+                            updateField(
+                              ground.id,
+                              "address",
+                              event.target.value,
+                            )
                           }
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
                         />
@@ -309,10 +448,13 @@ export default function PenpenAdminGroundsPage() {
                           type="url"
                           value={ground.googleMapUrl}
                           onChange={(event) =>
-                            updateMapUrl(ground.id, event.target.value)
+                            updateField(
+                              ground.id,
+                              "googleMapUrl",
+                              event.target.value,
+                            )
                           }
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
-                          placeholder="https://maps.google.com/..."
                         />
                       </label>
 
@@ -324,35 +466,57 @@ export default function PenpenAdminGroundsPage() {
                           type="text"
                           value={ground.note}
                           onChange={(event) =>
-                            updateNote(ground.id, event.target.value)
+                            updateField(ground.id, "note", event.target.value)
                           }
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 bg-white"
-                          placeholder="駐車場の有無など"
                         />
                       </label>
                     </div>
 
-                    <label className="inline-flex items-center gap-2 text-base font-bold text-gray-700 md:mt-7 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={ground.isEnabled}
-                        onChange={(event) =>
-                          toggleEnabled(ground.id, event.target.checked)
-                        }
-                        className="h-4 w-4"
-                      />
-                      有効
-                    </label>
+                    <div className="flex flex-col items-end gap-2 justify-center">
+                      <label className="inline-flex items-center gap-2 text-base font-bold text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={ground.isEnabled}
+                          onChange={(event) =>
+                            updateField(
+                              ground.id,
+                              "isEnabled",
+                              event.target.checked,
+                            )
+                          }
+                          className="h-4 w-4"
+                        />
+                        有効
+                      </label>
 
-                    <button
-                      type="button"
-                      onClick={() => deleteGround(ground.id)}
-                      aria-label="球場を削除"
-                      title="削除"
-                      className="md:mt-7 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                      <div className="inline-flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void saveGroundRow(ground.id)}
+                          disabled={savingRowId === ground.id}
+                          aria-label="球場を保存"
+                          title={savingRowId === ground.id ? "保存中" : "保存"}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {savedRowIds.has(ground.id) ? (
+                            <Check size={18} />
+                          ) : (
+                            <Save size={18} />
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void deleteGround(ground.id)}
+                          aria-label="球場を削除"
+                          title="削除"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

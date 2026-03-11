@@ -1,95 +1,97 @@
 "use client";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { useState } from "react";
 
-const TEAM_ABBREVIATIONS = [
-  "フレンドリー",
-  "ロケッツ",
-  "ウインズ",
-  "KJフェニックス",
-  "ノンベーズ",
-  "イエローストーン",
-];
-const TEAMS_DATA = [
-  {
-    name: "フレンドリー",
-    results: [null, 1, 1, 3, 5, 1], // vsノンベーズを不戦敗に変更
-    g: 5,
-    w: 3,
-    l: 1,
-    d: 1,
-    pts: 10,
-    diff: 12,
-  },
-  {
-    name: "ロケッツ",
-    results: [2, null, 1, 2, 1, 3],
-    g: 5,
-    w: 2,
-    l: 2,
-    d: 1,
-    pts: 7,
-    diff: 4,
-  },
-  {
-    name: "ウインズ",
-    results: [2, 2, null, 4, 1, 2], // vs KJを不戦勝に変更
-    g: 5,
-    w: 2,
-    l: 3,
-    d: 0,
-    pts: 6,
-    diff: 2,
-  },
-  {
-    name: "KJフェニックス",
-    results: [3, 1, 5, null, 2, 2], // vs ウインズを不戦敗に変更
-    g: 5,
-    w: 1,
-    l: 3,
-    d: 1,
-    pts: 4,
-    diff: -3,
-  },
-  {
-    name: "ノンベーズ",
-    results: [4, 2, 2, 1, null, 2], // vs フレンドリーを不戦勝に変更
-    g: 5,
-    w: 2,
-    l: 3,
-    d: 0,
-    pts: 6,
-    diff: -6,
-  },
-  {
-    name: "イエローストーン",
-    results: [2, 3, 1, 1, 1, null],
-    g: 5,
-    w: 3,
-    l: 1,
-    d: 1,
-    pts: 10,
-    diff: -9,
-  },
-].sort((a, b) => b.pts - a.pts);
+import Link from "next/link";
+import Image from "next/image";
+import { ArrowLeft } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  computeStandings,
+  fetchPenpenMasters,
+  fetchPenpenScheduleEntries,
+  type TeamStanding,
+} from "../lib/penpenData";
+import {
+  fetchPenpenHeaderImageUrl,
+  PENPEN_DEFAULT_HEADER_IMAGE,
+  resolvePenpenImageUrl,
+} from "../lib/penpenStorage";
+
+type TournamentImage = {
+  id: string;
+  leagueName: string;
+  imagePath: string;
+};
 
 export default function StandingsPage() {
+  const supabase = createClient();
+
   const [activeTab, setActiveTab] = useState("standings");
+  const [standings, setStandings] = useState<TeamStanding[]>([]);
+  const [tournaments, setTournaments] = useState<TournamentImage[]>([]);
+  const [headerImageUrl, setHeaderImageUrl] = useState(
+    PENPEN_DEFAULT_HEADER_IMAGE,
+  );
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [
+          { teams: teamData },
+          entries,
+          tournamentRes,
+          leagueRes,
+          nextHeaderImageUrl,
+        ] = await Promise.all([
+          fetchPenpenMasters(supabase),
+          fetchPenpenScheduleEntries(supabase),
+          supabase
+            .schema("penpen")
+            .from("tournaments")
+            .select("id, league_id, image_path")
+            .order("sort_order", { ascending: true }),
+          supabase.schema("penpen").from("leagues").select("id, name"),
+          fetchPenpenHeaderImageUrl(supabase),
+        ]);
+
+        const enabledTeams = teamData.filter((item) => item.isEnabled);
+        setStandings(computeStandings(entries, enabledTeams));
+
+        const leagueNameMap = new Map(
+          (leagueRes.data ?? []).map((l) => [l.id, l.name]),
+        );
+        setTournaments(
+          (tournamentRes.data ?? []).map((item) => ({
+            id: item.id,
+            leagueName: leagueNameMap.get(item.league_id) ?? "トーナメント",
+            imagePath: resolvePenpenImageUrl(supabase, item.image_path),
+          })),
+        );
+        setHeaderImageUrl(nextHeaderImageUrl);
+      } catch (error) {
+        window.alert(
+          `勝敗表データの取得に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+        );
+      }
+    };
+
+    void load();
+  }, [supabase]);
+
+  const orderedTeams = useMemo(
+    () => standings.map((item) => item),
+    [standings],
+  );
 
   const getResultSymbol = (res: number | null) => {
     switch (res) {
-      case 1: // 勝ち
+      case 1:
         return <span className="text-blue-600 font-black text-lg">○</span>;
-      case 2: // 負け
+      case 2:
         return <span className="text-rose-400 font-black text-lg">●</span>;
-      case 3: // 引き分け
+      case 3:
         return <span className="text-slate-400 font-black text-lg">△</span>;
-      case 4: // 不戦勝
-        return <span className="text-slate-800 font-black text-lg">□</span>;
-      case 5: // 不戦敗
-        return <span className="text-slate-800 font-black text-lg">■</span>;
-      default: // 未対戦
+      default:
         return <span className="text-slate-200">-</span>;
     }
   };
@@ -97,8 +99,12 @@ export default function StandingsPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="relative h-48 md:h-64 flex items-center justify-center overflow-hidden">
-        <img
-          src="/league.jpg"
+        <Image
+          src={headerImageUrl}
+          alt="PENPEN LEAGUE ヘッダー画像"
+          fill
+          sizes="100vw"
+          unoptimized
           className="absolute inset-0 w-full h-full object-cover z-0"
         />
         <div className="absolute inset-0 bg-blue-900/60 z-10"></div>
@@ -128,13 +134,21 @@ export default function StandingsPage() {
           <div className="flex border-b border-gray-200">
             <button
               onClick={() => setActiveTab("standings")}
-              className={`py-2 px-4 font-bold ${activeTab === "standings" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500 hover:bg-gray-100"}`}
+              className={`py-2 px-4 font-bold cursor-pointer ${
+                activeTab === "standings"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-500 hover:bg-gray-100"
+              }`}
             >
               順位表
             </button>
             <button
               onClick={() => setActiveTab("crosstable")}
-              className={`py-2 px-4 font-bold ${activeTab === "crosstable" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500 hover:bg-gray-100"}`}
+              className={`py-2 px-4 font-bold cursor-pointer ${
+                activeTab === "crosstable"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-500 hover:bg-gray-100"
+              }`}
             >
               対戦成績
             </button>
@@ -177,9 +191,9 @@ export default function StandingsPage() {
                       </tr>
                     </thead>
                     <tbody className="font-bold">
-                      {TEAMS_DATA.map((team, idx) => (
+                      {orderedTeams.map((team, idx) => (
                         <tr
-                          key={team.name}
+                          key={team.teamId}
                           className="hover:bg-blue-50/50 transition-colors"
                         >
                           <td className="p-3 border border-slate-100 text-center italic font-black text-slate-400">
@@ -212,7 +226,11 @@ export default function StandingsPage() {
                             {team.pts}
                           </td>
                           <td
-                            className={`p-3 border border-slate-100 text-center font-black ${team.diff >= 0 ? "text-emerald-500" : "text-rose-400"}`}
+                            className={`p-3 border border-slate-100 text-center font-black ${
+                              team.diff >= 0
+                                ? "text-emerald-500"
+                                : "text-rose-400"
+                            }`}
                           >
                             {team.diff > 0 ? `+${team.diff}` : team.diff}
                           </td>
@@ -232,20 +250,20 @@ export default function StandingsPage() {
                         <th className="p-3 border border-slate-700 text-left w-40 whitespace-nowrap">
                           チーム名
                         </th>
-                        {TEAM_ABBREVIATIONS.map((h) => (
+                        {orderedTeams.map((team) => (
                           <th
-                            key={h}
+                            key={team.teamId}
                             className="p-3 border border-slate-700 text-center w-20 whitespace-nowrap"
                           >
-                            {h}
+                            {team.name}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="font-bold">
-                      {TEAMS_DATA.map((team, idx) => (
+                      {orderedTeams.map((team, idx) => (
                         <tr
-                          key={team.name}
+                          key={team.teamId}
                           className="hover:bg-blue-50/50 transition-colors"
                         >
                           <td className="p-3 border border-slate-100 text-center italic font-black text-slate-400">
@@ -254,14 +272,25 @@ export default function StandingsPage() {
                           <td className="p-3 border border-slate-100 text-slate-800">
                             {team.name}
                           </td>
-                          {team.results.map((res, i) => (
-                            <td
-                              key={i}
-                              className={`p-3 border border-slate-100 text-center text-xs ${res === null ? "bg-slate-200" : ""}`}
-                            >
-                              {getResultSymbol(res)}
-                            </td>
-                          ))}
+                          {orderedTeams.map((opponent) => {
+                            const value =
+                              team.teamId === opponent.teamId
+                                ? null
+                                : (team.resultByTeamId[opponent.teamId] ??
+                                  null);
+                            return (
+                              <td
+                                key={`${team.teamId}_${opponent.teamId}`}
+                                className={`p-3 border border-slate-100 text-center text-xs ${
+                                  team.teamId === opponent.teamId
+                                    ? "bg-slate-200"
+                                    : ""
+                                }`}
+                              >
+                                {getResultSymbol(value)}
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </tbody>
@@ -279,135 +308,39 @@ export default function StandingsPage() {
               <div className="flex items-center gap-1">
                 <span className="text-rose-400 text-lg">●</span> 負け
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-slate-800 font-black text-lg">□</span>{" "}
-                不戦勝
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-slate-800 font-black text-lg">■</span>{" "}
-                不戦敗
-              </div>
             </div>
           </div>
         </section>
 
-        <h1 className="text-2xl md:text-3xl font-black text-gray-900 mb-5">
-          春のトーナメント
-        </h1>
+        {tournaments.length > 0 ? (
+          <>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900 mb-5">
+              トーナメント
+            </h1>
 
-        <div className="bg-slate-50 flex items-center overflow-x-auto font-sans p-4">
-          <div className="flex items-center min-w-max">
-            <div className="flex flex-col justify-between h-124 w-52 relative z-10">
-              <div className="flex flex-col gap-6">
-                <div className="h-24 p-3 border border-slate-300 rounded-md shadow-sm flex items-center bg-blue-50 font-bold text-slate-800">
-                  <span>チーム1（シード）</span>
-                </div>
-
-                <div className="h-24 bg-white border border-slate-300 rounded-md shadow-sm">
-                  <div className="h-1/2 p-3 border-b border-slate-100 flex justify-between items-center font-bold text-slate-800 bg-blue-50 rounded-t-md">
-                    <span>チーム2</span>
-                    <span className="text-blue-600">2</span>
-                  </div>
-                  <div className="h-1/2 p-3 flex justify-between items-center text-slate-400">
-                    <span>チーム3</span>
-                    <span>1</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-6">
-                <div className="h-24 p-3 border border-slate-300 rounded-md shadow-sm flex items-center bg-blue-50 font-bold text-slate-800">
-                  <span>チーム4 (シード)</span>
-                </div>
-
-                <div className="h-24 bg-white border border-slate-300 rounded-md shadow-sm">
-                  <div className="h-1/2 p-3 border-b border-slate-100 flex justify-between items-center text-slate-400 rounded-t-md">
-                    <span>チーム5</span>
-                    <span>0</span>
-                  </div>
-                  <div className="h-1/2 p-3 flex justify-between items-center font-bold text-slate-800">
-                    <span>チーム6</span>
-                    <span className="text-blue-600">3</span>
-                  </div>
-                </div>
-              </div>
+            <div className="space-y-4">
+              {tournaments.map((item) => (
+                <section
+                  key={item.id}
+                  className="bg-white rounded-2xl border border-gray-200 p-4 md:p-6"
+                >
+                  <h2 className="text-xl font-black text-gray-900 mb-4">
+                    {item.leagueName}
+                  </h2>
+                  <Image
+                    src={item.imagePath}
+                    alt={item.leagueName}
+                    width={1200}
+                    height={675}
+                    unoptimized
+                    className="w-full rounded-xl border border-gray-200 bg-white object-contain"
+                  />
+                </section>
+              ))}
             </div>
-
-            <div className="w-8 relative h-124">
-              <div className="absolute top-12 h-30 left-0 w-full border-r-2 border-y-2 border-slate-300 rounded-r-md"></div>
-              <div className="absolute top-27 -right-4 w-4 border-b-2 border-slate-300"></div>
-
-              <div className="absolute bottom-12 h-30 left-0 w-full border-r-2 border-y-2 border-slate-300 rounded-r-md"></div>
-              <div className="absolute bottom-27 -right-4 w-4 border-b-2 border-slate-300"></div>
-            </div>
-
-            <div className="flex flex-col justify-between h-124 w-52 ml-4 relative z-10">
-              <div className="mt-15 h-24 bg-white border-2 border-blue-200 rounded-md shadow-md">
-                <div className="h-1/2 p-3 border-b border-slate-100 flex justify-between items-center font-bold text-slate-800 bg-blue-50 rounded-t-md">
-                  <span>チーム1</span>
-                  <span className="text-blue-600">3</span>
-                </div>
-                <div className="h-1/2 p-3 flex justify-between items-center text-slate-400">
-                  <span>チーム2</span>
-                  <span>0</span>
-                </div>
-              </div>
-
-              <div className="mb-15 h-24 bg-white border border-slate-300 rounded-md shadow-sm">
-                <div className="h-1/2 p-3 border-b border-slate-100 flex justify-between items-center text-slate-400 rounded-t-md">
-                  <span>チーム4</span>
-                  <span>1</span>
-                </div>
-                <div className="h-1/2 p-3 flex justify-between items-center font-bold text-slate-800 bg-blue-50">
-                  <span>チーム6</span>
-                  <span className="text-blue-600">2</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="w-8 relative h-124">
-              <div className="absolute top-27 bottom-27 left-0 w-full border-r-2 border-y-2 border-slate-300 rounded-r-md"></div>
-              <div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-300"></div>
-            </div>
-
-            <div className="flex flex-col justify-center h-124 w-60 ml-6 relative z-10">
-              <div className="h-28 bg-yellow-50 border-2 border-yellow-400 rounded-md shadow-lg transform scale-105">
-                <div className="h-1/2 p-4 border-b border-yellow-200 flex justify-between items-center font-black text-slate-800 rounded-t-md">
-                  <span>チーム1</span>
-                  <span className="text-yellow-600 text-lg">2</span>
-                </div>
-                <div className="h-1/2 p-4 flex justify-between items-center font-bold text-slate-500">
-                  <span>チーム6</span>
-                  <span>1</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="w-12 relative h-124">
-              <div className="absolute top-1/2 left-0 w-full border-b-2 border-yellow-400"></div>
-            </div>
-
-            <div className="flex flex-col justify-center h-124 relative z-10">
-              <div className="bg-linear-to-br from-yellow-400 to-amber-500 text-white text-center py-5 px-8 rounded-xl shadow-xl transform hover:scale-105 transition-transform cursor-default whitespace-nowrap">
-                <div className="font-bold tracking-widest mb-1 opacity-90 text-red-500">
-                  優勝
-                </div>
-                <div className="text-2xl font-black flex items-center gap-2">
-                  <span>🏆</span> チーム1
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+          </>
+        ) : null}
       </div>
-
-      <footer className="py-20 border-t border-slate-100 text-center bg-white">
-        <div className="opacity-30 font-black tracking-widest hover:underline">
-          <a href="/" target="_blank">
-            Powered by DashBase
-          </a>
-        </div>
-      </footer>
     </main>
   );
 }

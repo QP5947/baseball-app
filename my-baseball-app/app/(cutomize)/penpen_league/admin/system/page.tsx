@@ -1,29 +1,43 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  PENPEN_DEFAULT_HEADER_IMAGE,
+  removePenpenImageIfStored,
+  resolvePenpenImageUrl,
+  uploadPenpenImage,
+} from "../../lib/penpenStorage";
 
 type SystemSettings = {
   title: string;
   subtitle: string;
-  headerImageDataUrl: string;
+  headerImagePath: string;
+  adminPasswordHash: string;
 };
-
-const SYSTEM_SETTINGS_STORAGE_KEY = "penpen_league_system_settings_v1";
-const ADMIN_PASSWORD_STORAGE_KEY = "penpen_league_admin_password_v1";
 
 const defaultSettings: SystemSettings = {
   title: "PENPEN LEAGUE",
   subtitle: "草野球リーグ公式サイト",
-  headerImageDataUrl: "",
+  headerImagePath: "",
+  adminPasswordHash: "",
 };
 
 export default function PenpenAdminSystemPage() {
+  const supabase = createClient();
+
   const [title, setTitle] = useState(defaultSettings.title);
   const [subtitle, setSubtitle] = useState(defaultSettings.subtitle);
-  const [headerImageDataUrl, setHeaderImageDataUrl] = useState(
-    defaultSettings.headerImageDataUrl,
+  const [headerImagePath, setHeaderImagePath] = useState(
+    defaultSettings.headerImagePath,
   );
+  const [headerImagePreviewUrl, setHeaderImagePreviewUrl] = useState(
+    PENPEN_DEFAULT_HEADER_IMAGE,
+  );
+  const [selectedHeaderImageFile, setSelectedHeaderImageFile] =
+    useState<File | null>(null);
   const [settingsMessage, setSettingsMessage] = useState("");
 
   const [savedPassword, setSavedPassword] = useState("");
@@ -33,61 +47,123 @@ export default function PenpenAdminSystemPage() {
   const [passwordMessage, setPasswordMessage] = useState("");
 
   useEffect(() => {
-    const rawSettings = localStorage.getItem(SYSTEM_SETTINGS_STORAGE_KEY);
-    if (rawSettings) {
+    const load = async () => {
+      const { data, error } = await supabase
+        .schema("penpen")
+        .from("settings")
+        .select(
+          "site_title, site_subtitle, header_image_url, admin_password_hash",
+        )
+        .eq("id", true)
+        .single();
+
+      if (error) {
+        setSettingsMessage(`設定読み込みに失敗しました: ${error.message}`);
+        return;
+      }
+
+      setTitle(data.site_title ?? defaultSettings.title);
+      setSubtitle(data.site_subtitle ?? defaultSettings.subtitle);
+      const loadedPath = data.header_image_url ?? "";
+      setHeaderImagePath(loadedPath);
+      setHeaderImagePreviewUrl(
+        resolvePenpenImageUrl(
+          supabase,
+          loadedPath,
+          PENPEN_DEFAULT_HEADER_IMAGE,
+        ),
+      );
+      setSavedPassword(data.admin_password_hash ?? "");
+    };
+
+    void load();
+  }, [supabase]);
+
+  const saveSettings = async (
+    next: Pick<SystemSettings, "title" | "subtitle" | "headerImagePath">,
+  ) => {
+    const { error } = await supabase
+      .schema("penpen")
+      .from("settings")
+      .upsert({
+        id: true,
+        site_title: next.title,
+        site_subtitle: next.subtitle,
+        header_image_url: next.headerImagePath || null,
+        admin_password_hash: savedPassword || null,
+      });
+
+    if (error) {
+      setSettingsMessage(`HP設定の保存に失敗しました: ${error.message}`);
+      return false;
+    }
+
+    setSettingsMessage("HP設定を保存しました。");
+    return true;
+  };
+
+  const handleSettingsSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const previousHeaderImagePath = headerImagePath;
+    let nextHeaderImagePath = headerImagePath;
+
+    if (selectedHeaderImageFile) {
       try {
-        const parsed = JSON.parse(rawSettings) as Partial<SystemSettings>;
-        setTitle(parsed.title ?? defaultSettings.title);
-        setSubtitle(parsed.subtitle ?? defaultSettings.subtitle);
-        setHeaderImageDataUrl(parsed.headerImageDataUrl ?? "");
-      } catch {
-        setTitle(defaultSettings.title);
-        setSubtitle(defaultSettings.subtitle);
-        setHeaderImageDataUrl(defaultSettings.headerImageDataUrl);
+        const uploaded = await uploadPenpenImage(
+          supabase,
+          selectedHeaderImageFile,
+          "header-images",
+        );
+        nextHeaderImagePath = uploaded.path;
+        setHeaderImagePreviewUrl(
+          uploaded.publicUrl || PENPEN_DEFAULT_HEADER_IMAGE,
+        );
+      } catch (error) {
+        setSettingsMessage(
+          `ヘッダー画像のアップロードに失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+        );
+        return;
       }
     }
 
-    const rawPassword = localStorage.getItem(ADMIN_PASSWORD_STORAGE_KEY) ?? "";
-    setSavedPassword(rawPassword);
-  }, []);
-
-  const handleSettingsSave = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const payload: SystemSettings = {
+    const payload = {
       title: title.trim(),
       subtitle: subtitle.trim(),
-      headerImageDataUrl,
+      headerImagePath: nextHeaderImagePath,
     };
 
-    localStorage.setItem(SYSTEM_SETTINGS_STORAGE_KEY, JSON.stringify(payload));
-    setSettingsMessage("HP設定を保存しました。");
+    const saved = await saveSettings(payload);
+    if (!saved) {
+      return;
+    }
+
+    if (previousHeaderImagePath !== nextHeaderImagePath) {
+      await removePenpenImageIfStored(supabase, previousHeaderImagePath);
+    }
+
+    setHeaderImagePath(nextHeaderImagePath);
+    setSelectedHeaderImageFile(null);
   };
 
   const handleHeaderImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setHeaderImageDataUrl(reader.result);
-        setSettingsMessage(
-          "ヘッダー画像を読み込みました。保存で確定されます。",
-        );
-      }
-    };
-    reader.readAsDataURL(file);
+    const previewUrl = URL.createObjectURL(file);
+    setSelectedHeaderImageFile(file);
+    setHeaderImagePreviewUrl(previewUrl);
+    setSettingsMessage("ヘッダー画像を選択しました。保存で確定されます。");
   };
 
   const removeHeaderImage = () => {
-    setHeaderImageDataUrl("");
+    setSelectedHeaderImageFile(null);
+    setHeaderImagePath("");
+    setHeaderImagePreviewUrl(PENPEN_DEFAULT_HEADER_IMAGE);
     setSettingsMessage("ヘッダー画像を削除しました。保存で確定されます。");
   };
 
-  const handlePasswordChange = (event: FormEvent<HTMLFormElement>) => {
+  const handlePasswordChange = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!newPassword || !confirmPassword) {
@@ -105,7 +181,22 @@ export default function PenpenAdminSystemPage() {
       return;
     }
 
-    localStorage.setItem(ADMIN_PASSWORD_STORAGE_KEY, newPassword);
+    const { error } = await supabase
+      .schema("penpen")
+      .from("settings")
+      .upsert({
+        id: true,
+        site_title: title.trim(),
+        site_subtitle: subtitle.trim(),
+        header_image_url: headerImagePath || null,
+        admin_password_hash: newPassword,
+      });
+
+    if (error) {
+      setPasswordMessage(`パスワード変更に失敗しました: ${error.message}`);
+      return;
+    }
+
     setSavedPassword(newPassword);
     setCurrentPassword("");
     setNewPassword("");
@@ -176,26 +267,31 @@ export default function PenpenAdminSystemPage() {
               />
             </label>
 
-            {headerImageDataUrl ? (
+            {headerImagePreviewUrl ? (
               <div className="space-y-3">
-                <img
-                  src={headerImageDataUrl}
+                <Image
+                  src={headerImagePreviewUrl}
                   alt="ヘッダー画像プレビュー"
+                  width={1200}
+                  height={420}
+                  unoptimized
                   className="w-full max-h-56 object-cover rounded-lg border border-gray-300"
                 />
-                <button
-                  type="button"
-                  onClick={removeHeaderImage}
-                  className="rounded-lg border border-red-300 text-red-700 font-bold px-4 py-2 hover:bg-red-50 transition-colors"
-                >
-                  画像を削除
-                </button>
+                {headerImagePath || selectedHeaderImageFile ? (
+                  <button
+                    type="button"
+                    onClick={removeHeaderImage}
+                    className="rounded-lg border border-red-300 text-red-700 font-bold px-4 py-2 hover:bg-red-50 transition-colors cursor-pointer"
+                  >
+                    画像を削除
+                  </button>
+                ) : null}
               </div>
             ) : null}
 
             <button
               type="submit"
-              className="bg-blue-600 text-white font-black px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-blue-600 text-white font-black px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
             >
               HP設定を保存
             </button>
@@ -258,7 +354,7 @@ export default function PenpenAdminSystemPage() {
 
             <button
               type="submit"
-              className="bg-blue-600 text-white font-black px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-blue-600 text-white font-black px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
             >
               パスワードを変更
             </button>

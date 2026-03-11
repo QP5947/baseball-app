@@ -2,24 +2,11 @@
 
 import { Calendar, CircleCheck, MapPin, Wrench } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-
-type GameInput = {
-  id: number;
-  startTime: string;
-  endTime: string;
-  awayTeam: string;
-  homeTeam: string;
-  gameType: "リーグ戦" | "トーナメント";
-};
-
-type ScheduleEntry = {
-  id: number;
-  date: string;
-  stadium: string;
-  games: GameInput[];
-  restTeams: string[];
-  note: string;
-};
+import { createClient } from "@/lib/supabase/client";
+import {
+  fetchPenpenScheduleEntries,
+  type PenpenScheduleEntry,
+} from "../../lib/penpenData";
 
 type GameResult = {
   awayScore: string;
@@ -27,48 +14,46 @@ type GameResult = {
   canceled: boolean;
 };
 
-const SCHEDULE_STORAGE_KEY = "penpen_league_schedule_entries_v1";
-const RESULT_STORAGE_KEY = "penpen_league_result_entries_v1";
-const RESULT_ENTRY_NOTE_STORAGE_KEY = "penpen_league_result_entry_notes_v1";
-
-const gameKey = (entryId: number, gameId: number) => `${entryId}_${gameId}`;
-
 export default function OneDayResultForm() {
-  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
+  const supabase = createClient();
+
+  const [scheduleEntries, setScheduleEntries] = useState<PenpenScheduleEntry[]>(
+    [],
+  );
   const [resultMap, setResultMap] = useState<Record<string, GameResult>>({});
   const [entryNoteMap, setEntryNoteMap] = useState<Record<string, string>>({});
-  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    const scheduleRaw = localStorage.getItem(SCHEDULE_STORAGE_KEY);
-    if (scheduleRaw) {
+    const load = async () => {
       try {
-        setScheduleEntries(JSON.parse(scheduleRaw) as ScheduleEntry[]);
-      } catch {
-        setScheduleEntries([]);
-      }
-    }
+        const entries = await fetchPenpenScheduleEntries(supabase);
+        setScheduleEntries(entries);
 
-    const resultRaw = localStorage.getItem(RESULT_STORAGE_KEY);
-    if (resultRaw) {
-      try {
-        setResultMap(JSON.parse(resultRaw) as Record<string, GameResult>);
-      } catch {
-        setResultMap({});
-      }
-    }
+        const nextResults: Record<string, GameResult> = {};
+        const nextEntryNotes: Record<string, string> = {};
 
-    const entryNoteRaw = localStorage.getItem(RESULT_ENTRY_NOTE_STORAGE_KEY);
-    if (entryNoteRaw) {
-      try {
-        setEntryNoteMap(JSON.parse(entryNoteRaw) as Record<string, string>);
-      } catch {
-        setEntryNoteMap({});
-      }
-    }
+        entries.forEach((entry) => {
+          nextEntryNotes[entry.id] = entry.resultNote;
+          entry.games.forEach((game) => {
+            nextResults[game.id] = {
+              awayScore: game.awayScore === null ? "" : String(game.awayScore),
+              homeScore: game.homeScore === null ? "" : String(game.homeScore),
+              canceled: game.isCanceled,
+            };
+          });
+        });
 
-    setIsHydrated(true);
-  }, []);
+        setResultMap(nextResults);
+        setEntryNoteMap(nextEntryNotes);
+      } catch (error) {
+        window.alert(
+          `データの読み込みに失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+        );
+      }
+    };
+
+    void load();
+  }, [supabase]);
 
   const sortedEntries = useMemo(
     () => [...scheduleEntries].sort((a, b) => a.date.localeCompare(b.date)),
@@ -81,20 +66,17 @@ export default function OneDayResultForm() {
   );
 
   const updateResult = (
-    entryId: number,
-    gameId: number,
+    gameId: string,
     key: keyof GameResult,
     value: string | boolean,
   ) => {
-    const targetKey = gameKey(entryId, gameId);
-
     setResultMap((prev) => ({
       ...prev,
-      [targetKey]: (() => {
+      [gameId]: (() => {
         const current = {
-          awayScore: prev[targetKey]?.awayScore ?? "",
-          homeScore: prev[targetKey]?.homeScore ?? "",
-          canceled: prev[targetKey]?.canceled ?? false,
+          awayScore: prev[gameId]?.awayScore ?? "",
+          homeScore: prev[gameId]?.homeScore ?? "",
+          canceled: prev[gameId]?.canceled ?? false,
         };
 
         if (key === "canceled") {
@@ -122,64 +104,58 @@ export default function OneDayResultForm() {
     }));
   };
 
-  const handleSave = () => {
-    if (!selectedEntry) {
-      return;
-    }
+  const handleSave = async () => {
+    if (!selectedEntry) return;
 
-    const raw = localStorage.getItem(RESULT_STORAGE_KEY);
-    let storedMap: Record<string, GameResult> = {};
+    try {
+      const rows = selectedEntry.games.map((game) => {
+        const current = resultMap[game.id] ?? {
+          awayScore: "",
+          homeScore: "",
+          canceled: false,
+        };
 
-    if (raw) {
-      try {
-        storedMap = JSON.parse(raw) as Record<string, GameResult>;
-      } catch {
-        storedMap = {};
+        return {
+          scheduled_game_id: game.id,
+          away_score:
+            current.canceled || current.awayScore === ""
+              ? null
+              : Number(current.awayScore),
+          home_score:
+            current.canceled || current.homeScore === ""
+              ? null
+              : Number(current.homeScore),
+          is_canceled: current.canceled,
+        };
+      });
+
+      if (rows.length > 0) {
+        const { error } = await supabase
+          .schema("penpen")
+          .from("game_results")
+          .upsert(rows, { onConflict: "scheduled_game_id" });
+
+        if (error) throw error;
       }
+
+      const { error: noteError } = await supabase
+        .schema("penpen")
+        .from("schedule_day_results")
+        .upsert({
+          schedule_day_id: selectedEntry.id,
+          note: entryNoteMap[selectedEntry.id] ?? "",
+          is_finalized: false,
+        });
+
+      if (noteError) throw noteError;
+
+      window.alert(`${selectedEntry.date} の試合結果を保存しました。`);
+    } catch (error) {
+      window.alert(
+        `保存に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+      );
     }
-
-    const nextMap = { ...storedMap };
-
-    Object.keys(nextMap).forEach((key) => {
-      if (key.startsWith(`${selectedEntry.id}_`)) {
-        delete nextMap[key];
-      }
-    });
-
-    selectedEntry.games.forEach((game) => {
-      const key = gameKey(selectedEntry.id, game.id);
-      nextMap[key] = resultMap[key] ?? {
-        awayScore: "",
-        homeScore: "",
-        canceled: false,
-      };
-    });
-
-    localStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(nextMap));
-
-    const noteRaw = localStorage.getItem(RESULT_ENTRY_NOTE_STORAGE_KEY);
-    let storedEntryNotes: Record<string, string> = {};
-    if (noteRaw) {
-      try {
-        storedEntryNotes = JSON.parse(noteRaw) as Record<string, string>;
-      } catch {
-        storedEntryNotes = {};
-      }
-    }
-
-    const selectedEntryKey = String(selectedEntry.id);
-    storedEntryNotes[selectedEntryKey] = entryNoteMap[selectedEntryKey] ?? "";
-    localStorage.setItem(
-      RESULT_ENTRY_NOTE_STORAGE_KEY,
-      JSON.stringify(storedEntryNotes),
-    );
-
-    window.alert(`${selectedEntry.date} の試合結果を保存しました。`);
   };
-
-  if (!isHydrated) {
-    return <p className="text-base text-gray-600">データを読み込み中です...</p>;
-  }
 
   if (sortedEntries.length === 0) {
     return (
@@ -210,8 +186,8 @@ export default function OneDayResultForm() {
             </div>
             <button
               type="button"
-              onClick={handleSave}
-              className="bg-blue-600 text-white font-black px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => void handleSave()}
+              className="bg-blue-600 text-white font-black px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
             >
               この日を保存
             </button>
@@ -238,8 +214,7 @@ export default function OneDayResultForm() {
           ) : (
             <div className="space-y-3">
               {selectedEntry.games.map((game, idx) => {
-                const key = gameKey(selectedEntry.id, game.id);
-                const result = resultMap[key] ?? {
+                const result = resultMap[game.id] ?? {
                   awayScore: "",
                   homeScore: "",
                   canceled: false,
@@ -247,7 +222,7 @@ export default function OneDayResultForm() {
 
                 return (
                   <div
-                    key={key}
+                    key={game.id}
                     className={`rounded-lg border p-4 space-y-3 ${
                       result.canceled
                         ? "border-red-200 bg-red-50"
@@ -271,7 +246,6 @@ export default function OneDayResultForm() {
                           value={result.awayScore}
                           onChange={(event) =>
                             updateResult(
-                              selectedEntry.id,
                               game.id,
                               "awayScore",
                               event.target.value,
@@ -287,7 +261,6 @@ export default function OneDayResultForm() {
                           value={result.homeScore}
                           onChange={(event) =>
                             updateResult(
-                              selectedEntry.id,
                               game.id,
                               "homeScore",
                               event.target.value,
@@ -311,7 +284,6 @@ export default function OneDayResultForm() {
                             checked={result.canceled}
                             onChange={(event) =>
                               updateResult(
-                                selectedEntry.id,
                                 game.id,
                                 "canceled",
                                 event.target.checked,
@@ -332,11 +304,11 @@ export default function OneDayResultForm() {
           <label className="block">
             <input
               type="text"
-              value={entryNoteMap[String(selectedEntry.id)] ?? ""}
+              value={entryNoteMap[selectedEntry.id] ?? ""}
               onChange={(event) =>
                 setEntryNoteMap((prev) => ({
                   ...prev,
-                  [String(selectedEntry.id)]: event.target.value,
+                  [selectedEntry.id]: event.target.value,
                 }))
               }
               aria-label="備考"

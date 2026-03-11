@@ -1,86 +1,58 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   Calendar,
   Trophy,
   MapPin,
   Clock,
   ChevronRight,
-  Settings,
   FileText,
   Wrench,
   CircleCheck,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { fetchPenpenScheduleEntries, toDisplayDate } from "./lib/penpenData";
+import { fetchPenpenHeaderImageUrl } from "./lib/penpenStorage";
 
-// ダミーデータ：1日3試合の構成
-const prevMatchDay = {
-  date: "2025.03.23 (日)",
-  games: [
-    {
-      id: 1,
-      label: "第1試合",
-      teamA: "フレンドリー",
-      teamB: "ウインズ",
-      scoreA: 5,
-      scoreB: 2,
-      markA: true,
-    },
-    {
-      id: 2,
-      label: "第2試合",
-      teamA: "KJフェニックス",
-      teamB: "ノンベーズ",
-      scoreA: 0,
-      scoreB: 3,
-    },
-    {
-      id: 3,
-      label: "第3試合",
-      teamA: "イエローストーン",
-      teamB: "ロケッツ",
-      scoreA: 4,
-      scoreB: 4,
-      markB: true,
-    },
-  ],
-};
-
-const nextMatchDay = {
-  date: "2025.04.06 (日)",
-  stadium: "庄内川西",
-  games: [
-    {
-      id: 4,
-      label: "第1試合",
-      time: "08:30",
-      teamA: "イエローストーン",
-      teamB: "KJフェニックス",
-      markA: true,
-    },
-    {
-      id: 5,
-      label: "第2試合",
-      time: "10:30",
-      teamA: "ウインズ",
-      teamB: "ロケッツ",
-    },
-    {
-      id: 6,
-      label: "第3試合",
-      time: "12:30",
-      teamA: "フレンドリー",
-      teamB: "ノンベーズ",
-      markB: true,
-    },
-  ],
-};
+const hasScoredGame = (date: {
+  games: {
+    awayScore: number | null;
+    homeScore: number | null;
+    isCanceled: boolean;
+  }[];
+}) =>
+  date.games.some(
+    (game) =>
+      game.isCanceled || (game.awayScore !== null && game.homeScore !== null),
+  );
 
 export default async function HomePage() {
+  const supabase = await createClient();
+  const [entries, headerImageUrl] = await Promise.all([
+    fetchPenpenScheduleEntries(supabase),
+    fetchPenpenHeaderImageUrl(supabase),
+  ]);
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const previousEntry = [...entries]
+    .filter((entry) => entry.date <= today)
+    .reverse()
+    .find((entry) => hasScoredGame(entry));
+
+  const nextEntry = entries.find(
+    (entry) => entry.date >= today && entry.games.length > 0,
+  );
+
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* ヘッダー */}
       <header className="relative h-48 md:h-64 flex items-center justify-center overflow-hidden">
-        <img
-          src="/league.jpg"
+        <Image
+          src={headerImageUrl}
+          alt="PENPEN LEAGUE ヘッダー画像"
+          fill
+          sizes="100vw"
+          unoptimized
           className="absolute inset-0 w-full h-full object-cover z-0"
         />
         <div className="absolute inset-0 bg-blue-900/60 z-10"></div>
@@ -97,7 +69,7 @@ export default async function HomePage() {
       <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-10">
         <div className="flex flex-wrap justify-center gap-4 py-2 border-y border-gray-200 bg-white shadow-sm -mx-4 px-4 md:mx-0 md:rounded-xl">
           <Link
-            href={`/penpen_league/rules`}
+            href="/penpen_league/rules"
             className="flex items-center gap-2 py-3 px-6 text-orange-700 hover:bg-orange-50 rounded-full transition-colors font-bold text-lg md:text-xl"
           >
             <FileText size={24} />
@@ -105,7 +77,7 @@ export default async function HomePage() {
           </Link>
 
           <Link
-            href={`/penpen_league/stadiums`}
+            href="/penpen_league/stadiums"
             className="flex items-center gap-2 py-3 px-6 text-blue-700 hover:bg-blue-50 rounded-full transition-colors font-bold text-lg md:text-xl"
           >
             <MapPin size={24} />
@@ -113,10 +85,9 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        {/* 主要ナビゲーション */}
         <nav className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Link
-            href={`/penpen_league/schedule`}
+            href="/penpen_league/schedule"
             className="group flex items-center justify-between bg-white border-4 border-blue-600 p-8 rounded-3xl shadow-md hover:bg-blue-600 transition-all"
           >
             <div className="flex items-center space-x-6">
@@ -134,7 +105,7 @@ export default async function HomePage() {
             />
           </Link>
           <Link
-            href={`/penpen_league/standings`}
+            href="/penpen_league/standings"
             className="group flex items-center justify-between bg-white border-4 border-blue-600 p-8 rounded-3xl shadow-md hover:bg-blue-600 transition-all"
           >
             <div className="flex items-center space-x-6">
@@ -153,112 +124,133 @@ export default async function HomePage() {
           </Link>
         </nav>
 
-        {/* 試合情報セクション */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {/* 前回の結果（3試合） */}
           <section className="bg-white rounded-4xl shadow-lg border border-gray-200 overflow-hidden">
             <div className="bg-gray-800 text-white p-6 flex justify-between items-center flex-nowrap">
               <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2 whitespace-nowrap shrink-0">
                 <Trophy size={28} /> 前回の結果
               </h2>
               <span className="text-base sm:text-xl font-bold whitespace-nowrap ml-3 shrink-0">
-                {prevMatchDay.date}
+                {previousEntry ? toDisplayDate(previousEntry.date) : "-"}
               </span>
             </div>
-            <div className="divide-y-2 divide-gray-100">
-              {prevMatchDay.games.map((game) => (
-                <div key={game.id} className="p-6 md:p-8">
-                  <div className="text-gray-500 font-bold text-lg mb-3">
-                    {game.label}
-                  </div>
-                  <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-3">
-                    <div className="flex-1 text-center md:text-right w-full">
-                      <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
-                        {"markA" in game && game.markA && (
-                          <Wrench
-                            size={18}
-                            className="inline-block mr-1 text-orange-500 align-[-3px]"
-                          />
+
+            {!previousEntry ? (
+              <p className="p-6 text-base text-gray-500">
+                結果データはまだありません。
+              </p>
+            ) : (
+              <div className="divide-y-2 divide-gray-100">
+                {previousEntry.games.map((game, idx) => (
+                  <div key={game.id} className="p-6 md:p-8">
+                    <div className="text-gray-500 font-bold text-lg mb-3">
+                      第{idx + 1}試合
+                    </div>
+                    <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-3">
+                      <div className="flex-1 text-center md:text-right w-full">
+                        <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
+                          {idx === 0 && (
+                            <Wrench
+                              size={18}
+                              className="inline-block mr-1 text-orange-500 align-[-3px]"
+                            />
+                          )}
+                          {game.awayTeam}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center space-x-3 shrink-0 px-2">
+                        {game.isCanceled ? (
+                          <span className="text-base font-black text-red-600">
+                            中止
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-2xl sm:text-3xl md:text-4xl font-black text-blue-700">
+                              {game.awayScore ?? "-"}
+                            </span>
+                            <span className="text-lg sm:text-xl text-gray-800">
+                              -
+                            </span>
+                            <span className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-800">
+                              {game.homeScore ?? "-"}
+                            </span>
+                          </>
                         )}
-                        {game.teamA}
+                      </div>
+                      <div className="flex-1 text-center md:text-left w-full">
+                        <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
+                          {game.homeTeam}
+                          {idx === previousEntry.games.length - 1 && (
+                            <CircleCheck
+                              size={18}
+                              className="inline-block ml-1 text-orange-500 align-[-3px]"
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-center space-x-3 shrink-0 px-2">
-                      <span className="text-2xl sm:text-3xl md:text-4xl font-black text-blue-700">
-                        {game.scoreA}
-                      </span>
-                      <span className="text-lg sm:text-xl text-gray-800">
-                        -
-                      </span>
-                      <span className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-800">
-                        {game.scoreB}
-                      </span>
-                    </div>
-                    <div className="flex-1 text-center md:text-left w-full">
-                      <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
-                        {game.teamB}
-                        {"markB" in game && game.markB && (
-                          <CircleCheck
-                            size={18}
-                            className="inline-block ml-1 text-orange-500 align-[-3px]"
-                          />
-                        )}
-                      </div>
-                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
-          {/* 次回の予告（3試合） */}
           <section className="bg-blue-50 rounded-4xl shadow-lg border-2 border-blue-200 overflow-hidden">
             <div className="bg-blue-600 text-white p-6 flex justify-between items-center flex-nowrap">
               <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2 whitespace-nowrap shrink-0">
                 <Calendar size={28} /> 次回の予告
               </h2>
               <span className="text-base sm:text-xl font-bold whitespace-nowrap ml-3 shrink-0">
-                {nextMatchDay.date}
+                {nextEntry ? toDisplayDate(nextEntry.date) : "-"}
               </span>
             </div>
-            <div className="p-4 bg-white mx-6 mt-6 rounded-xl border border-blue-100 flex items-center justify-center gap-2 text-blue-700 font-black text-xl">
-              <MapPin size={24} /> {nextMatchDay.stadium}
-            </div>
-            <div className="p-6 space-y-4">
-              {nextMatchDay.games.map((game) => (
-                <div
-                  key={game.id}
-                  className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100"
-                >
-                  <div className="flex items-center gap-2 text-blue-600 font-bold mb-2 text-lg">
-                    <Clock size={20} /> {game.time}〜 ({game.label})
-                  </div>
-                  <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-4">
-                    <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-center md:text-left w-full md:w-auto">
-                      {"markA" in game && game.markA && (
-                        <Wrench
-                          size={18}
-                          className="inline-block mr-1 text-orange-500 align-[-3px]"
-                        />
-                      )}
-                      {game.teamA}
-                    </div>
-                    <span className="text-base sm:text-lg font-bold text-gray-400 italic">
-                      VS
-                    </span>
-                    <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-center md:text-right w-full md:w-auto">
-                      {game.teamB}
-                      {"markB" in game && game.markB && (
-                        <CircleCheck
-                          size={18}
-                          className="inline-block ml-1 text-orange-500 align-[-3px]"
-                        />
-                      )}
-                    </div>
-                  </div>
+
+            {!nextEntry ? (
+              <p className="p-6 text-base text-gray-500">
+                次回日程はまだありません。
+              </p>
+            ) : (
+              <>
+                <div className="p-4 bg-white mx-6 mt-6 rounded-xl border border-blue-100 flex items-center justify-center gap-2 text-blue-700 font-black text-xl">
+                  <MapPin size={24} /> {nextEntry.stadium || "会場未設定"}
                 </div>
-              ))}
-            </div>
+                <div className="p-6 space-y-4">
+                  {nextEntry.games.map((game, idx) => (
+                    <div
+                      key={game.id}
+                      className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100"
+                    >
+                      <div className="flex items-center gap-2 text-blue-600 font-bold mb-2 text-lg">
+                        <Clock size={20} /> {game.startTime}〜 (第{idx + 1}試合)
+                      </div>
+                      <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-4">
+                        <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-center md:text-left w-full md:w-auto">
+                          {idx === 0 && (
+                            <Wrench
+                              size={18}
+                              className="inline-block mr-1 text-orange-500 align-[-3px]"
+                            />
+                          )}
+                          {game.awayTeam}
+                        </div>
+                        <span className="text-base sm:text-lg font-bold text-gray-400 italic">
+                          VS
+                        </span>
+                        <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-center md:text-right w-full md:w-auto">
+                          {game.homeTeam}
+                          {idx === nextEntry.games.length - 1 && (
+                            <CircleCheck
+                              size={18}
+                              className="inline-block ml-1 text-orange-500 align-[-3px]"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </section>
         </div>
 

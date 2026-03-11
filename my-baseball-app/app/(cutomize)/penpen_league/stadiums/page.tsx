@@ -1,24 +1,39 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, MapPin, ExternalLink } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { fetchPenpenHeaderImageUrl } from "../lib/penpenStorage";
 
-const stadiums = [
-  {
-    id: "shonai-nishi",
-    name: "庄内川西グラウンド（下流側）",
-    address: "愛知県名古屋市西区山田町大字上小田井",
-    // Googleマップの「地図を埋め込む」からsrcの中身だけを抽出
-    mapUrl:
-      "https://maps.google.com/maps?q=35.2098614,136.883316&hl=ja&z=16&output=embed",
-    note: "車は庄内緑地公園の第三～五駐車場（有料）に止めて下さい。",
-  },
-];
+export default async function StadiumsPage() {
+  const supabase = await createClient();
 
-export default function StadiumsPage() {
+  const [{ data }, headerImageUrl] = await Promise.all([
+    supabase
+      .schema("penpen")
+      .from("stadiums")
+      .select("id, name, address, google_map_url, note")
+      .eq("is_enabled", true)
+      .order("sort_order", { ascending: true }),
+    fetchPenpenHeaderImageUrl(supabase),
+  ]);
+
+  const stadiums = (data ?? []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    address: item.address ?? "",
+    mapUrl: item.google_map_url ?? "",
+    note: item.note ?? "",
+  }));
+
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="relative h-48 md:h-64 flex items-center justify-center overflow-hidden">
-        <img
-          src="/league.jpg"
+        <Image
+          src={headerImageUrl}
+          alt="PENPEN LEAGUE ヘッダー画像"
+          fill
+          sizes="100vw"
+          unoptimized
           className="absolute inset-0 w-full h-full object-cover z-0"
         />
         <div className="absolute inset-0 bg-blue-900/60 z-10"></div>
@@ -41,56 +56,75 @@ export default function StadiumsPage() {
         </Link>
 
         <div className="space-y-10">
-          {stadiums.map((stadium) => (
-            <section
-              key={stadium.id}
-              className="bg-white rounded-4xl shadow-lg border border-gray-200 overflow-hidden"
-            >
-              <div className="p-6 md:p-8">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h2 className="text-2xl md:text-3xl font-black text-gray-900 mb-2">
-                      {stadium.name}
-                    </h2>
-                    <p className="flex items-center gap-2 text-gray-500 font-bold">
-                      <MapPin size={18} className="text-blue-600" />
-                      {stadium.address}
-                    </p>
-                  </div>
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stadium.address)}`}
-                    target="_blank"
-                    className="p-3 bg-blue-50 text-blue-700 rounded-full hover:bg-blue-600 hover:text-white transition-colors"
-                  >
-                    <ExternalLink size={24} />
-                  </a>
-                </div>
-
-                {/* Google Map 埋め込み部分 */}
-                <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-gray-100 shadow-inner">
-                  <iframe
-                    src={stadium.mapUrl}
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0 }}
-                    allowFullScreen
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    title={stadium.name}
-                  ></iframe>
-                </div>
-
-                {stadium.note && (
-                  <p className="mt-4 p-4 bg-yellow-50 rounded-xl text-gray-700 font-bold border border-yellow-100">
-                    💡 {stadium.note}
-                  </p>
-                )}
-              </div>
+          {stadiums.length === 0 ? (
+            <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <p className="text-base text-gray-500">
+                球場情報はまだ登録されていません。
+              </p>
             </section>
-          ))}
+          ) : (
+            stadiums.map((stadium) => (
+              <section
+                key={stadium.id}
+                className="bg-white rounded-4xl shadow-lg border border-gray-200 overflow-hidden"
+              >
+                <div className="p-6 md:p-8">
+                  <div className="flex items-start justify-between mb-4 gap-3">
+                    <div>
+                      <h2 className="text-2xl md:text-3xl font-black text-gray-900 mb-2">
+                        {stadium.name}
+                      </h2>
+                      <p className="flex items-center gap-2 text-gray-500 font-bold">
+                        {stadium.address && (
+                          <>
+                            <MapPin size={18} className="text-blue-600" />
+                            {stadium.address}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    {stadium.address ? (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stadium.address)}`}
+                        target="_blank"
+                        className="p-3 bg-blue-50 text-blue-700 rounded-full hover:bg-blue-600 hover:text-white transition-colors"
+                      >
+                        <ExternalLink size={24} />
+                      </a>
+                    ) : null}
+                  </div>
+
+                  {stadium.mapUrl ? (
+                    <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-2 border-gray-100 shadow-inner">
+                      <iframe
+                        src={stadium.mapUrl}
+                        width="100%"
+                        height="100%"
+                        style={{ border: 0 }}
+                        allowFullScreen
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        title={stadium.name}
+                      ></iframe>
+                    </div>
+                  ) : (
+                    <p className="text-base text-gray-500">
+                      地図URLは未登録です。
+                    </p>
+                  )}
+
+                  {stadium.note ? (
+                    <p className="mt-4 p-4 bg-yellow-50 rounded-xl text-gray-700 font-bold border border-yellow-100 whitespace-pre-wrap">
+                      💡 {stadium.note}
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+            ))
+          )}
         </div>
       </div>
-      {/* フッター導線 */}
+
       <footer className="py-20 border-t border-slate-100 text-center bg-white">
         <div className="opacity-30 font-black tracking-widest hover:underline">
           <a href="/" target="_blank">

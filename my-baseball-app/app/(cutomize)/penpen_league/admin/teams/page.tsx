@@ -1,38 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { GripVertical, Trash2 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
-
-type TeamItem = {
-  id: number;
-  name: string;
-  isEnabled: boolean;
-};
-
-const TEAM_STORAGE_KEY = "penpen_league_teams_v1";
-
-const initialTeams: TeamItem[] = [
-  { id: 1, name: "ペンペンズ", isEnabled: true },
-  { id: 2, name: "ホワイトベアーズ", isEnabled: true },
-  { id: 3, name: "ブルーウィングス", isEnabled: false },
-];
+import { Check, GripVertical, Save, Trash2 } from "lucide-react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { PenpenMaster } from "../../lib/penpenData";
 
 const reorderItems = (
-  items: TeamItem[],
-  sourceId: number,
-  targetId: number,
+  items: PenpenMaster[],
+  sourceId: string,
+  targetId: string,
 ) => {
-  if (sourceId === targetId) {
-    return items;
-  }
+  if (sourceId === targetId) return items;
 
   const sourceIndex = items.findIndex((item) => item.id === sourceId);
   const targetIndex = items.findIndex((item) => item.id === targetId);
-
-  if (sourceIndex < 0 || targetIndex < 0) {
-    return items;
-  }
+  if (sourceIndex < 0 || targetIndex < 0) return items;
 
   const copied = [...items];
   const [moved] = copied.splice(sourceIndex, 1);
@@ -41,77 +24,234 @@ const reorderItems = (
 };
 
 export default function PenpenAdminTeamsPage() {
-  const [teams, setTeams] = useState<TeamItem[]>(initialTeams);
-  const [draggingId, setDraggingId] = useState<number | null>(null);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const supabase = createClient();
+
+  const [teams, setTeams] = useState<PenpenMaster[]>([]);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamEnabled, setNewTeamEnabled] = useState(true);
+  const [savingRowId, setSavingRowId] = useState<string | null>(null);
+  const [dirtyRowIds, setDirtyRowIds] = useState<Set<string>>(new Set());
+  const [savedRowIds, setSavedRowIds] = useState<Set<string>>(new Set());
+  const savedResetTimers = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
+
+  const markRowSaved = (rowId: string) => {
+    setSavedRowIds((prev) => {
+      const next = new Set(prev);
+      next.add(rowId);
+      return next;
+    });
+
+    const existingTimer = savedResetTimers.current[rowId];
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    savedResetTimers.current[rowId] = setTimeout(() => {
+      setSavedRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rowId);
+        return next;
+      });
+      delete savedResetTimers.current[rowId];
+    }, 1200);
+  };
 
   useEffect(() => {
-    const raw = localStorage.getItem(TEAM_STORAGE_KEY);
-    if (raw) {
-      try {
-        setTeams(JSON.parse(raw) as TeamItem[]);
-      } catch {
-        setTeams(initialTeams);
+    const load = async () => {
+      const { data, error } = await supabase
+        .schema("penpen")
+        .from("teams")
+        .select("id, name, is_enabled, sort_order")
+        .order("sort_order", { ascending: true });
+
+      if (error) {
+        window.alert(`チームデータの取得に失敗しました: ${error.message}`);
+        return;
       }
-    }
-    setIsHydrated(true);
+
+      setTeams(
+        (data ?? [])
+          .filter((item) => item.name.trim() !== "未定")
+          .map((item) => ({
+            id: item.id,
+            name: item.name,
+            isEnabled: item.is_enabled,
+            sortOrder: item.sort_order,
+          })),
+      );
+      setDirtyRowIds(new Set());
+    };
+
+    void load();
+  }, [supabase]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(savedResetTimers.current).forEach((timerId) => {
+        clearTimeout(timerId);
+      });
+    };
   }, []);
 
-  useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
-    localStorage.setItem(TEAM_STORAGE_KEY, JSON.stringify(teams));
-  }, [teams, isHydrated]);
+  const saveTeams = async (targetTeams: PenpenMaster[] = teams) => {
+    const payload = targetTeams.map((item, index) => ({
+      id: item.id,
+      name: item.name.trim(),
+      is_enabled: item.isEnabled,
+      sort_order: index,
+    }));
 
-  const updateName = (id: number, value: string) => {
+    const { error } = await supabase
+      .schema("penpen")
+      .from("teams")
+      .upsert(payload, { onConflict: "id" });
+
+    if (error) {
+      window.alert(`チームデータの保存に失敗しました: ${error.message}`);
+      return false;
+    }
+
+    setDirtyRowIds(new Set());
+
+    return true;
+  };
+
+  const saveTeamRow = async (teamId: string) => {
+    const index = teams.findIndex((item) => item.id === teamId);
+    if (index < 0) return;
+
+    const target = teams[index];
+    setSavingRowId(teamId);
+    try {
+      const { error } = await supabase.schema("penpen").from("teams").upsert(
+        {
+          id: target.id,
+          name: target.name.trim(),
+          is_enabled: target.isEnabled,
+          sort_order: index,
+        },
+        { onConflict: "id" },
+      );
+
+      if (error) {
+        window.alert(`チームデータの保存に失敗しました: ${error.message}`);
+        return;
+      }
+
+      setDirtyRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(teamId);
+        return next;
+      });
+      markRowSaved(teamId);
+    } finally {
+      setSavingRowId(null);
+    }
+  };
+
+  const updateName = (id: string, value: string) => {
     setTeams((prev) =>
       prev.map((item) => (item.id === id ? { ...item, name: value } : item)),
     );
+    setDirtyRowIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    setSavedRowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
-  const toggleEnabled = (id: number, checked: boolean) => {
+  const toggleEnabled = (id: string, checked: boolean) => {
     setTeams((prev) =>
       prev.map((item) =>
         item.id === id ? { ...item, isEnabled: checked } : item,
       ),
     );
+    setDirtyRowIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    setSavedRowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
-  const addTeam = (event: FormEvent<HTMLFormElement>) => {
+  const addTeam = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const trimmedName = newTeamName.trim();
-    if (!trimmedName) {
+    if (!trimmedName) return;
+
+    const { data, error } = await supabase
+      .schema("penpen")
+      .from("teams")
+      .insert({
+        name: trimmedName,
+        is_enabled: newTeamEnabled,
+        sort_order: teams.length,
+      })
+      .select("id, name, is_enabled, sort_order")
+      .single();
+
+    if (error || !data) {
+      window.alert(
+        `チームの追加に失敗しました: ${error?.message ?? "unknown"}`,
+      );
       return;
     }
 
     setTeams((prev) => [
       ...prev,
       {
-        id: Date.now(),
-        name: trimmedName,
-        isEnabled: newTeamEnabled,
+        id: data.id,
+        name: data.name,
+        isEnabled: data.is_enabled,
+        sortOrder: data.sort_order,
       },
     ]);
-
     setNewTeamName("");
     setNewTeamEnabled(true);
   };
 
-  const deleteTeam = (id: number) => {
+  const deleteTeam = async (id: string) => {
     const target = teams.find((item) => item.id === id);
     const confirmed = window.confirm(
       `${target?.name ?? "このチーム"} を削除します。よろしいですか？`,
     );
+    if (!confirmed) return;
 
-    if (!confirmed) {
+    const { error } = await supabase
+      .schema("penpen")
+      .from("teams")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      window.alert(`チームの削除に失敗しました: ${error.message}`);
       return;
     }
 
     setTeams((prev) => prev.filter((item) => item.id !== id));
+    setDirtyRowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setSavedRowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
   return (
@@ -169,7 +309,7 @@ export default function PenpenAdminTeamsPage() {
 
                 <button
                   type="submit"
-                  className="bg-blue-600 text-white font-black px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="bg-blue-600 text-white font-black px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
                 >
                   追加
                 </button>
@@ -180,25 +320,29 @@ export default function PenpenAdminTeamsPage() {
               {teams.map((team, index) => (
                 <div
                   key={team.id}
-                  draggable
-                  onDragStart={() => setDraggingId(team.id)}
-                  onDragEnd={() => setDraggingId(null)}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => {
-                    if (draggingId === null) {
-                      return;
-                    }
-                    setTeams((prev) => reorderItems(prev, draggingId, team.id));
+                    if (draggingId === null) return;
+                    const reordered = reorderItems(teams, draggingId, team.id);
+                    setTeams(reordered);
                     setDraggingId(null);
+                    void saveTeams(reordered);
                   }}
                   className={`rounded-xl border p-4 md:p-5 bg-gray-50 transition ${
                     draggingId === team.id
                       ? "border-blue-400 bg-blue-50"
-                      : "border-gray-200"
-                  } cursor-grab active:cursor-grabbing`}
+                      : dirtyRowIds.has(team.id)
+                        ? "border-amber-300 bg-amber-50"
+                        : "border-gray-200"
+                  }`}
                 >
                   <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto_auto] items-center gap-4">
-                    <div className="inline-flex items-center gap-2 text-gray-500 font-bold cursor-grab">
+                    <div
+                      draggable
+                      onDragStart={() => setDraggingId(team.id)}
+                      onDragEnd={() => setDraggingId(null)}
+                      className="inline-flex items-center gap-2 text-gray-500 font-bold cursor-grab active:cursor-grabbing"
+                    >
                       <GripVertical size={18} />
                       <span className="text-base">{index + 1}</span>
                     </div>
@@ -217,7 +361,7 @@ export default function PenpenAdminTeamsPage() {
                       />
                     </label>
 
-                    <label className="inline-flex items-center gap-2 text-base font-bold text-gray-700 md:mt-7 cursor-pointer">
+                    <label className="inline-flex items-center gap-2 text-base font-bold text-gray-700 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={team.isEnabled}
@@ -229,15 +373,32 @@ export default function PenpenAdminTeamsPage() {
                       有効
                     </label>
 
-                    <button
-                      type="button"
-                      onClick={() => deleteTeam(team.id)}
-                      aria-label="チームを削除"
-                      title="削除"
-                      className="md:mt-7 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    <div className="inline-flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void saveTeamRow(team.id)}
+                        disabled={savingRowId === team.id}
+                        aria-label="チームを保存"
+                        title={savingRowId === team.id ? "保存中" : "保存"}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {savedRowIds.has(team.id) ? (
+                          <Check size={18} />
+                        ) : (
+                          <Save size={18} />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void deleteTeam(team.id)}
+                        aria-label="チームを削除"
+                        title="削除"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-red-300 text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
