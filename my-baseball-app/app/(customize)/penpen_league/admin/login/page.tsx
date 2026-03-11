@@ -1,10 +1,14 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function PenpenAdminLoginPage() {
+  useEffect(() => {
+    document.title = "ログイン | ペンペンリーグ";
+  }, []);
+
   const router = useRouter();
 
   const [adminId, setAdminId] = useState("");

@@ -142,6 +142,10 @@ const createDefaultGames = (gameType: GameType = ""): GameInput[] => [
 ];
 
 export default function PenpenAdminSchedulePage() {
+  useEffect(() => {
+    document.title = "試合日程入力 | ペンペンリーグ";
+  }, []);
+
   const supabase = createClient();
 
   const [date, setDate] = useState(() => getTodayDateInput());

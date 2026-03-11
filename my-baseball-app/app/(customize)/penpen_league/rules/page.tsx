@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchPenpenHeaderImageUrl } from "../lib/penpenStorage";
+
+export const metadata: Metadata = { title: "大会規定 | ペンペンリーグ" };
 
 export default async function RulesPage() {
   const supabase = await createClient();
@@ -28,7 +31,7 @@ export default async function RulesPage() {
       <header className="relative h-48 md:h-64 flex items-center justify-center overflow-hidden">
         <Image
           src={headerImageUrl}
-          alt="PENPEN LEAGUE ヘッダー画像"
+          alt="ペンペンリーグ ヘッダー画像"
           fill
           sizes="100vw"
           unoptimized

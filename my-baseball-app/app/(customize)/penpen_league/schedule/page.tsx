@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -12,6 +13,8 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { fetchPenpenScheduleEntries, toDisplayDate } from "../lib/penpenData";
 import { fetchPenpenHeaderImageUrl } from "../lib/penpenStorage";
+
+export const metadata: Metadata = { title: "日程表 | ペンペンリーグ" };
 
 export default async function SchedulePage() {
   const supabase = await createClient();

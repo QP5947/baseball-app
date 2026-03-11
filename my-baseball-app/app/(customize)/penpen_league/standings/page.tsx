@@ -25,6 +25,10 @@ type TournamentImage = {
 };
 
 export default function StandingsPage() {
+  useEffect(() => {
+    document.title = "勝敗表 | ペンペンリーグ";
+  }, []);
+
   const supabase = createClient();
 
   const [activeTab, setActiveTab] = useState("standings");

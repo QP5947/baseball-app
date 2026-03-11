@@ -23,6 +23,10 @@ const normalizeRules = (items: RuleBlock[]) =>
   }));
 
 export default function PenpenAdminRulesPage() {
+  useEffect(() => {
+    document.title = "大会規定管理 | ペンペンリーグ";
+  }, []);
+
   const supabase = createClient();
 
   const [rules, setRules] = useState<RuleBlock[]>([]);

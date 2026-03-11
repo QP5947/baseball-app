@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import OneDayResultForm from "./components/OneDayResultForm";
 import AdminLogoutButton from "./components/AdminLogoutButton";
@@ -38,6 +39,8 @@ const menuItems = [
     icon: Settings,
   },
 ];
+
+export const metadata: Metadata = { title: "管理画面 | ペンペンリーグ" };
 
 export default function PenpenAdminHomePage() {
   return (

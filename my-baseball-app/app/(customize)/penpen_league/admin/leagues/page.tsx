@@ -24,6 +24,10 @@ const reorderItems = (
 };
 
 export default function PenpenAdminLeaguesPage() {
+  useEffect(() => {
+    document.title = "大会管理 | ペンペンリーグ";
+  }, []);
+
   const supabase = createClient();
 
   const [leagues, setLeagues] = useState<PenpenMaster[]>([]);

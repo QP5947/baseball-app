@@ -24,6 +24,10 @@ const reorderItems = (
 };
 
 export default function PenpenAdminGroundsPage() {
+  useEffect(() => {
+    document.title = "球場管理 | ペンペンリーグ";
+  }, []);
+
   const supabase = createClient();
 
   const [grounds, setGrounds] = useState<PenpenStadium[]>([]);

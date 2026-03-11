@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -28,6 +29,8 @@ const hasScoredGame = (date: {
       game.isCanceled ||
       (game.awayScore !== null && game.homeScore !== null),
   );
+
+export const metadata: Metadata = { title: "ペンペンリーグ" };
 
 export default async function HomePage() {
   const supabase = await createClient();

@@ -26,6 +26,10 @@ const periodLabelMap: Record<PeriodFilter, string> = {
 };
 
 export default function PenpenAdminResultsPage() {
+  useEffect(() => {
+    document.title = "試合結果入力 | ペンペンリーグ";
+  }, []);
+
   const supabase = createClient();
 
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("spring");

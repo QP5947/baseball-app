@@ -26,6 +26,10 @@ const defaultSettings: SystemSettings = {
 };
 
 export default function PenpenAdminSystemPage() {
+  useEffect(() => {
+    document.title = "システム設定 | ペンペンリーグ";
+  }, []);
+
   const supabase = createClient();
 
   const [title, setTitle] = useState(defaultSettings.title);

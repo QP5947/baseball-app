@@ -34,6 +34,10 @@ const normalizeTournaments = (items: TournamentItem[]) =>
   }));
 
 export default function PenpenAdminTournamentsPage() {
+  useEffect(() => {
+    document.title = "トーナメント管理 | ペンペンリーグ";
+  }, []);
+
   const supabase = createClient();
 
   const [leagueOptions, setLeagueOptions] = useState<LeagueItem[]>([]);
