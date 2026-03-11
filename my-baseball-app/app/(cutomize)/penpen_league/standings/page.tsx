@@ -10,6 +10,7 @@ import {
   fetchPenpenMasters,
   fetchPenpenScheduleEntries,
   type TeamStanding,
+  type GameResult,
 } from "../lib/penpenData";
 import {
   fetchPenpenHeaderImageUrl,
@@ -83,17 +84,56 @@ export default function StandingsPage() {
     [standings],
   );
 
-  const getResultSymbol = (res: number | null) => {
-    switch (res) {
-      case 1:
-        return <span className="text-blue-600 font-black text-lg">○</span>;
-      case 2:
-        return <span className="text-rose-400 font-black text-lg">●</span>;
-      case 3:
-        return <span className="text-slate-400 font-black text-lg">△</span>;
-      default:
-        return <span className="text-slate-200">-</span>;
-    }
+  const getResultSymbols = (results: GameResult[] | undefined) => {
+    if (!results || results.length === 0)
+      return <span className="text-slate-200">-</span>;
+    return (
+      <span className="inline-flex gap-0.5 flex-wrap justify-center">
+        {results.map((r, i) =>
+          r === "w" ? (
+            <span
+              key={i}
+              className="text-rose-500 font-black text-lg"
+              title="勝ち"
+            >
+              ●
+            </span>
+          ) : r === "d" ? (
+            <span
+              key={i}
+              className="text-slate-500 font-black text-lg"
+              title="引き分け"
+            >
+              ▲
+            </span>
+          ) : r === "fw" ? (
+            <span
+              key={i}
+              className="text-rose-500 font-black text-lg"
+              title="不戦勝"
+            >
+              ■
+            </span>
+          ) : r === "fl" ? (
+            <span
+              key={i}
+              className="text-blue-600 font-black text-lg"
+              title="不戦敗"
+            >
+              ■
+            </span>
+          ) : (
+            <span
+              key={i}
+              className="text-blue-600 font-black text-lg"
+              title="負け"
+            >
+              ●
+            </span>
+          ),
+        )}
+      </span>
+    );
   };
 
   return (
@@ -273,11 +313,10 @@ export default function StandingsPage() {
                             {team.name}
                           </td>
                           {orderedTeams.map((opponent) => {
-                            const value =
+                            const results =
                               team.teamId === opponent.teamId
-                                ? null
-                                : (team.resultByTeamId[opponent.teamId] ??
-                                  null);
+                                ? undefined
+                                : team.resultByTeamId[opponent.teamId];
                             return (
                               <td
                                 key={`${team.teamId}_${opponent.teamId}`}
@@ -287,7 +326,7 @@ export default function StandingsPage() {
                                     : ""
                                 }`}
                               >
-                                {getResultSymbol(value)}
+                                {getResultSymbols(results)}
                               </td>
                             );
                           })}
@@ -298,17 +337,25 @@ export default function StandingsPage() {
                 </div>
               )}
             </div>
-            <div className="bg-slate-50 p-4 text-slate-400 font-bold flex flex-wrap gap-x-6 gap-y-2 justify-center border-t border-slate-100">
-              <div className="flex items-center gap-1">
-                <span className="text-blue-600 text-lg">○</span> 勝ち
+            {activeTab === "crosstable" && (
+              <div className="bg-slate-50 p-4 text-slate-500 font-bold flex flex-wrap gap-x-6 gap-y-2 justify-center border-t border-slate-100">
+                <div className="flex items-center gap-1">
+                  勝ち：<span className="text-rose-500 text-lg">●</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  負け：<span className="text-blue-600 text-lg">●</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  引き分け：<span className="text-slate-500 text-lg">▲</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  不戦勝：<span className="text-rose-500 text-lg">■</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  不戦敗：<span className="text-blue-600 text-lg">■</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-slate-400 text-lg">△</span> 引き分け
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-rose-400 text-lg">●</span> 負け
-              </div>
-            </div>
+            )}
           </div>
         </section>
 

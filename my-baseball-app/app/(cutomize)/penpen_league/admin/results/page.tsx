@@ -16,6 +16,7 @@ type GameResult = {
   awayScore: string;
   homeScore: string;
   canceled: boolean;
+  forfeitWinner: "away" | "home" | null;
 };
 
 const periodLabelMap: Record<PeriodFilter, string> = {
@@ -50,6 +51,7 @@ export default function PenpenAdminResultsPage() {
               awayScore: game.awayScore === null ? "" : String(game.awayScore),
               homeScore: game.homeScore === null ? "" : String(game.homeScore),
               canceled: game.isCanceled,
+              forfeitWinner: game.forfeitWinner,
             };
           });
         });
@@ -75,7 +77,7 @@ export default function PenpenAdminResultsPage() {
   const updateResult = (
     gameId: string,
     key: keyof GameResult,
-    value: string | boolean,
+    value: string | boolean | "away" | "home" | null,
   ) => {
     setResultMap((prev) => ({
       ...prev,
@@ -84,6 +86,7 @@ export default function PenpenAdminResultsPage() {
           awayScore: prev[gameId]?.awayScore ?? "",
           homeScore: prev[gameId]?.homeScore ?? "",
           canceled: prev[gameId]?.canceled ?? false,
+          forfeitWinner: prev[gameId]?.forfeitWinner ?? null,
         };
 
         if (key === "canceled") {
@@ -94,12 +97,27 @@ export default function PenpenAdminResultsPage() {
               canceled: true,
               awayScore: "",
               homeScore: "",
+              forfeitWinner: null,
             };
           }
           return { ...current, canceled: false };
         }
 
-        if (current.canceled && (key === "awayScore" || key === "homeScore")) {
+        if (key === "forfeitWinner") {
+          const fw = value as "away" | "home" | null;
+          return {
+            ...current,
+            forfeitWinner: fw,
+            canceled: false,
+            awayScore: "",
+            homeScore: "",
+          };
+        }
+
+        if (
+          (current.canceled || current.forfeitWinner !== null) &&
+          (key === "awayScore" || key === "homeScore")
+        ) {
           return current;
         }
 
@@ -118,19 +136,25 @@ export default function PenpenAdminResultsPage() {
           awayScore: "",
           homeScore: "",
           canceled: false,
+          forfeitWinner: null,
         };
 
         return {
           scheduled_game_id: game.id,
           away_score:
-            current.canceled || current.awayScore === ""
+            current.canceled ||
+            current.forfeitWinner !== null ||
+            current.awayScore === ""
               ? null
               : Number(current.awayScore),
           home_score:
-            current.canceled || current.homeScore === ""
+            current.canceled ||
+            current.forfeitWinner !== null ||
+            current.homeScore === ""
               ? null
               : Number(current.homeScore),
           is_canceled: current.canceled,
+          forfeit_winner: current.forfeitWinner,
         };
       });
 
@@ -169,7 +193,7 @@ export default function PenpenAdminResultsPage() {
             試合結果入力
           </h1>
           <p className="text-base text-gray-600 mt-2">
-            試合日程入力で登録した試合に対して、スコア・中止・備考を入力します。
+            試合日程入力で登録した試合に対して、スコア・中止・不戦・備考を入力します。
           </p>
         </header>
 
@@ -262,6 +286,7 @@ export default function PenpenAdminResultsPage() {
                           awayScore: "",
                           homeScore: "",
                           canceled: false,
+                          forfeitWinner: null,
                         };
 
                         return (
@@ -270,7 +295,9 @@ export default function PenpenAdminResultsPage() {
                             className={`rounded-lg border p-4 space-y-3 ${
                               result.canceled
                                 ? "border-red-200 bg-red-50"
-                                : "border-gray-200 bg-white"
+                                : result.forfeitWinner !== null
+                                  ? "border-blue-200 bg-blue-50"
+                                  : "border-gray-200 bg-white"
                             }`}
                           >
                             <div className="overflow-x-auto">
@@ -299,7 +326,10 @@ export default function PenpenAdminResultsPage() {
                                     )
                                   }
                                   className="w-20 rounded-lg border border-gray-300 px-2 py-1"
-                                  disabled={result.canceled}
+                                  disabled={
+                                    result.canceled ||
+                                    result.forfeitWinner !== null
+                                  }
                                 />
                                 <span>-</span>
                                 <input
@@ -314,7 +344,10 @@ export default function PenpenAdminResultsPage() {
                                     )
                                   }
                                   className="w-20 rounded-lg border border-gray-300 px-2 py-1"
-                                  disabled={result.canceled}
+                                  disabled={
+                                    result.canceled ||
+                                    result.forfeitWinner !== null
+                                  }
                                 />
                                 <span className="inline-flex items-center gap-1">
                                   {idx === entry.games.length - 1 && (
@@ -325,21 +358,84 @@ export default function PenpenAdminResultsPage() {
                                   )}
                                   {game.homeTeam}
                                 </span>
-                                <label className="inline-flex items-center gap-2 text-base font-bold text-gray-700">
-                                  <input
-                                    type="checkbox"
-                                    checked={result.canceled}
-                                    onChange={(event) =>
-                                      updateResult(
-                                        game.id,
-                                        "canceled",
-                                        event.target.checked,
-                                      )
-                                    }
-                                    className="h-4 w-4"
-                                  />
-                                  中止
-                                </label>
+                                <div className="inline-flex flex-col items-start gap-2 text-base font-bold text-gray-700">
+                                  <div className="inline-flex items-center gap-4">
+                                    <label className="inline-flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={result.canceled}
+                                        onChange={(event) =>
+                                          updateResult(
+                                            game.id,
+                                            "canceled",
+                                            event.target.checked,
+                                          )
+                                        }
+                                        className="h-4 w-4"
+                                      />
+                                      中止
+                                    </label>
+                                    <label className="inline-flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={result.forfeitWinner !== null}
+                                        onChange={(event) =>
+                                          updateResult(
+                                            game.id,
+                                            "forfeitWinner",
+                                            event.target.checked
+                                              ? "away"
+                                              : null,
+                                          )
+                                        }
+                                        className="h-4 w-4"
+                                      />
+                                      不戦
+                                    </label>
+                                  </div>
+                                  {result.forfeitWinner !== null && (
+                                    <div className="inline-flex items-center gap-2 pl-1">
+                                      <label className="inline-flex items-center gap-1">
+                                        <input
+                                          type="radio"
+                                          name={`forfeit-${game.id}`}
+                                          value="away"
+                                          checked={
+                                            result.forfeitWinner === "away"
+                                          }
+                                          onChange={() =>
+                                            updateResult(
+                                              game.id,
+                                              "forfeitWinner",
+                                              "away",
+                                            )
+                                          }
+                                          className="h-4 w-4"
+                                        />
+                                        {game.awayTeam} 不戦勝
+                                      </label>
+                                      <label className="inline-flex items-center gap-1">
+                                        <input
+                                          type="radio"
+                                          name={`forfeit-${game.id}`}
+                                          value="home"
+                                          checked={
+                                            result.forfeitWinner === "home"
+                                          }
+                                          onChange={() =>
+                                            updateResult(
+                                              game.id,
+                                              "forfeitWinner",
+                                              "home",
+                                            )
+                                          }
+                                          className="h-4 w-4"
+                                        />
+                                        {game.homeTeam} 不戦勝
+                                      </label>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>

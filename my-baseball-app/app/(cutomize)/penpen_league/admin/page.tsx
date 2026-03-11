@@ -54,7 +54,7 @@ export default function PenpenAdminHomePage() {
 
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 space-y-4">
           <h2 className="text-xl font-black text-gray-900">
-            1日分の試合結果入力
+            直近の試合結果入力
           </h2>
           <OneDayResultForm />
         </section>

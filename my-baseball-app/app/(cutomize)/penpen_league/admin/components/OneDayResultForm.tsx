@@ -12,6 +12,7 @@ type GameResult = {
   awayScore: string;
   homeScore: string;
   canceled: boolean;
+  forfeitWinner: "away" | "home" | null;
 };
 
 export default function OneDayResultForm() {
@@ -39,6 +40,7 @@ export default function OneDayResultForm() {
               awayScore: game.awayScore === null ? "" : String(game.awayScore),
               homeScore: game.homeScore === null ? "" : String(game.homeScore),
               canceled: game.isCanceled,
+              forfeitWinner: game.forfeitWinner,
             };
           });
         });
@@ -60,15 +62,27 @@ export default function OneDayResultForm() {
     [scheduleEntries],
   );
 
-  const selectedEntry = useMemo(
-    () => sortedEntries[sortedEntries.length - 1] ?? null,
-    [sortedEntries],
-  );
+  const selectedEntry = useMemo(() => {
+    for (const entry of sortedEntries) {
+      if (entry.games.length === 0) continue;
+      for (const game of entry.games) {
+        if (
+          game.awayScore === null &&
+          game.homeScore === null &&
+          !game.isCanceled &&
+          game.forfeitWinner === null
+        ) {
+          return entry;
+        }
+      }
+    }
+    return null;
+  }, [sortedEntries]);
 
   const updateResult = (
     gameId: string,
     key: keyof GameResult,
-    value: string | boolean,
+    value: string | boolean | "away" | "home" | null,
   ) => {
     setResultMap((prev) => ({
       ...prev,
@@ -77,6 +91,7 @@ export default function OneDayResultForm() {
           awayScore: prev[gameId]?.awayScore ?? "",
           homeScore: prev[gameId]?.homeScore ?? "",
           canceled: prev[gameId]?.canceled ?? false,
+          forfeitWinner: prev[gameId]?.forfeitWinner ?? null,
         };
 
         if (key === "canceled") {
@@ -87,12 +102,27 @@ export default function OneDayResultForm() {
               canceled: true,
               awayScore: "",
               homeScore: "",
+              forfeitWinner: null,
             };
           }
           return { ...current, canceled: false };
         }
 
-        if (current.canceled && (key === "awayScore" || key === "homeScore")) {
+        if (key === "forfeitWinner") {
+          const fw = value as "away" | "home" | null;
+          return {
+            ...current,
+            forfeitWinner: fw,
+            canceled: false,
+            awayScore: "",
+            homeScore: "",
+          };
+        }
+
+        if (
+          (current.canceled || current.forfeitWinner !== null) &&
+          (key === "awayScore" || key === "homeScore")
+        ) {
           return current;
         }
 
@@ -113,19 +143,25 @@ export default function OneDayResultForm() {
           awayScore: "",
           homeScore: "",
           canceled: false,
+          forfeitWinner: null,
         };
 
         return {
           scheduled_game_id: game.id,
           away_score:
-            current.canceled || current.awayScore === ""
+            current.canceled ||
+            current.forfeitWinner !== null ||
+            current.awayScore === ""
               ? null
               : Number(current.awayScore),
           home_score:
-            current.canceled || current.homeScore === ""
+            current.canceled ||
+            current.forfeitWinner !== null ||
+            current.homeScore === ""
               ? null
               : Number(current.homeScore),
           is_canceled: current.canceled,
+          forfeit_winner: current.forfeitWinner,
         };
       });
 
@@ -218,6 +254,7 @@ export default function OneDayResultForm() {
                   awayScore: "",
                   homeScore: "",
                   canceled: false,
+                  forfeitWinner: null,
                 };
 
                 return (
@@ -278,21 +315,78 @@ export default function OneDayResultForm() {
                           )}
                           {game.homeTeam}
                         </span>
-                        <label className="inline-flex items-center gap-2 text-base font-bold text-gray-700">
-                          <input
-                            type="checkbox"
-                            checked={result.canceled}
-                            onChange={(event) =>
-                              updateResult(
-                                game.id,
-                                "canceled",
-                                event.target.checked,
-                              )
-                            }
-                            className="h-4 w-4"
-                          />
-                          中止
-                        </label>
+                        <div className="inline-flex flex-col items-start gap-2 text-base font-bold text-gray-700">
+                          <div className="inline-flex items-center gap-4">
+                            <label className="inline-flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={result.canceled}
+                                onChange={(event) =>
+                                  updateResult(
+                                    game.id,
+                                    "canceled",
+                                    event.target.checked,
+                                  )
+                                }
+                                className="h-4 w-4"
+                              />
+                              中止
+                            </label>
+                            <label className="inline-flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={result.forfeitWinner !== null}
+                                onChange={(event) =>
+                                  updateResult(
+                                    game.id,
+                                    "forfeitWinner",
+                                    event.target.checked ? "away" : null,
+                                  )
+                                }
+                                className="h-4 w-4"
+                              />
+                              不戦
+                            </label>
+                          </div>
+                          {result.forfeitWinner !== null && (
+                            <div className="inline-flex items-center gap-2 pl-1">
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="radio"
+                                  name={`forfeit-${game.id}`}
+                                  value="away"
+                                  checked={result.forfeitWinner === "away"}
+                                  onChange={() =>
+                                    updateResult(
+                                      game.id,
+                                      "forfeitWinner",
+                                      "away",
+                                    )
+                                  }
+                                  className="h-4 w-4"
+                                />
+                                {game.awayTeam} 不戦勝
+                              </label>
+                              <label className="inline-flex items-center gap-1">
+                                <input
+                                  type="radio"
+                                  name={`forfeit-${game.id}`}
+                                  value="home"
+                                  checked={result.forfeitWinner === "home"}
+                                  onChange={() =>
+                                    updateResult(
+                                      game.id,
+                                      "forfeitWinner",
+                                      "home",
+                                    )
+                                  }
+                                  className="h-4 w-4"
+                                />
+                                {game.homeTeam} 不戦勝
+                              </label>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

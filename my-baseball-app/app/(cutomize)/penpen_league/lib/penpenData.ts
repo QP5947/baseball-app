@@ -29,6 +29,7 @@ export type PenpenGame = {
   awayScore: number | null;
   homeScore: number | null;
   isCanceled: boolean;
+  forfeitWinner: "away" | "home" | null;
 };
 
 export type PenpenScheduleEntry = {
@@ -89,6 +90,7 @@ type GameResultRow = {
   away_score: number | null;
   home_score: number | null;
   is_canceled: boolean;
+  forfeit_winner: string | null;
 };
 
 type DayResultRow = {
@@ -220,7 +222,9 @@ export async function fetchPenpenScheduleEntries(supabase: SupabaseClient) {
       .order("sort_order", { ascending: true }),
     penpen
       .from("game_results")
-      .select("scheduled_game_id, away_score, home_score, is_canceled"),
+      .select(
+        "scheduled_game_id, away_score, home_score, is_canceled, forfeit_winner",
+      ),
     penpen.from("schedule_day_results").select("schedule_day_id, note"),
   ]);
 
@@ -283,6 +287,10 @@ export async function fetchPenpenScheduleEntries(supabase: SupabaseClient) {
       awayScore: rowResult?.away_score ?? null,
       homeScore: rowResult?.home_score ?? null,
       isCanceled: rowResult?.is_canceled ?? false,
+      forfeitWinner: (rowResult?.forfeit_winner ?? null) as
+        | "away"
+        | "home"
+        | null,
     });
     gamesMap.set(row.schedule_day_id, current);
   });
@@ -309,6 +317,8 @@ export async function fetchPenpenScheduleEntries(supabase: SupabaseClient) {
   return entries;
 }
 
+export type GameResult = "w" | "d" | "l" | "fw" | "fl";
+
 export type TeamStanding = {
   teamId: string;
   name: string;
@@ -318,7 +328,7 @@ export type TeamStanding = {
   d: number;
   pts: number;
   diff: number;
-  resultByTeamId: Record<string, number | null>;
+  resultByTeamId: Record<string, GameResult[]>;
 };
 
 export function computeStandings(
@@ -343,12 +353,7 @@ export function computeStandings(
 
   entries.forEach((entry) => {
     entry.games.forEach((game) => {
-      if (
-        game.gameType !== "リーグ戦" ||
-        game.isCanceled ||
-        game.awayScore === null ||
-        game.homeScore === null
-      ) {
+      if (game.gameType !== "リーグ戦" || game.isCanceled) {
         return;
       }
 
@@ -358,30 +363,59 @@ export function computeStandings(
         return;
       }
 
+      // 不戦勝/不戦敗
+      if (game.forfeitWinner !== null) {
+        away.g += 1;
+        home.g += 1;
+        if (!away.resultByTeamId[home.teamId])
+          away.resultByTeamId[home.teamId] = [];
+        if (!home.resultByTeamId[away.teamId])
+          home.resultByTeamId[away.teamId] = [];
+        if (game.forfeitWinner === "away") {
+          away.w += 1;
+          home.l += 1;
+          away.resultByTeamId[home.teamId].push("fw");
+          home.resultByTeamId[away.teamId].push("fl");
+        } else {
+          away.l += 1;
+          home.w += 1;
+          away.resultByTeamId[home.teamId].push("fl");
+          home.resultByTeamId[away.teamId].push("fw");
+        }
+        return;
+      }
+
+      if (game.awayScore === null || game.homeScore === null) {
+        return;
+      }
+
       away.g += 1;
       home.g += 1;
       away.diff += game.awayScore - game.homeScore;
       home.diff += game.homeScore - game.awayScore;
 
+      if (!away.resultByTeamId[home.teamId])
+        away.resultByTeamId[home.teamId] = [];
+      if (!home.resultByTeamId[away.teamId])
+        home.resultByTeamId[away.teamId] = [];
+
       if (game.awayScore > game.homeScore) {
         away.w += 1;
-        away.pts += 3;
+        away.pts += game.awayScore;
         home.l += 1;
-        away.resultByTeamId[home.teamId] = 1;
-        home.resultByTeamId[away.teamId] = 2;
+        away.resultByTeamId[home.teamId].push("w");
+        home.resultByTeamId[away.teamId].push("l");
       } else if (game.awayScore < game.homeScore) {
         away.l += 1;
         home.w += 1;
-        home.pts += 3;
-        away.resultByTeamId[home.teamId] = 2;
-        home.resultByTeamId[away.teamId] = 1;
+        home.pts += game.homeScore;
+        away.resultByTeamId[home.teamId].push("l");
+        home.resultByTeamId[away.teamId].push("w");
       } else {
         away.d += 1;
         home.d += 1;
-        away.pts += 1;
-        home.pts += 1;
-        away.resultByTeamId[home.teamId] = 3;
-        home.resultByTeamId[away.teamId] = 3;
+        away.resultByTeamId[home.teamId].push("d");
+        home.resultByTeamId[away.teamId].push("d");
       }
     });
   });

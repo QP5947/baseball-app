@@ -3,6 +3,7 @@ import Image from "next/image";
 import {
   ArrowLeft,
   Calendar,
+  FileText,
   MapPin,
   Clock,
   Wrench,
@@ -64,75 +65,97 @@ export default async function SchedulePage() {
                   </div>
                 </div>
 
-                <div className="mb-4 flex items-center gap-2 text-gray-600 font-bold text-lg pl-2">
-                  <MapPin size={20} className="text-blue-600" />
-                  <span>会場: {day.stadium || "未設定"}</span>
-                </div>
-
                 <div className="grid grid-cols-1 gap-4">
-                  {day.games.map((game, index) => (
-                    <div
-                      key={game.id}
-                      className="bg-white rounded-2xl p-6 shadow-md border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4"
-                    >
-                      <div className="flex items-center gap-4 w-full md:w-auto">
-                        <div className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-black whitespace-nowrap">
-                          第{index + 1}試合
-                        </div>
-                        <div className="flex items-center gap-2 text-blue-600 font-bold text-xl whitespace-nowrap">
-                          <Clock size={20} />
-                          {game.startTime}〜
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4 w-full md:flex-1">
-                        <div className="flex flex-col items-center md:items-end flex-1 min-w-0 w-full">
-                          <div className="inline-block">
-                            <div className="text-base sm:text-lg md:text-xl font-black text-center md:text-right whitespace-nowrap">
-                              {index === 0 && (
-                                <Wrench
-                                  size={18}
-                                  className="inline-block mr-1 text-orange-500 align-[-3px]"
-                                />
-                              )}
-                              {game.awayTeam}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-center shrink-0 px-2">
-                          {game.isCanceled ? (
-                            <div className="text-sm sm:text-base font-black text-red-600 bg-red-50 px-3 py-1 rounded-xl border border-red-200 whitespace-nowrap">
-                              中止
-                            </div>
-                          ) : game.awayScore !== null &&
-                            game.homeScore !== null ? (
-                            <div className="text-base sm:text-lg md:text-xl font-black text-zinc-800 bg-zinc-50 px-3 py-1 rounded-xl border border-zinc-200 whitespace-nowrap">
-                              {game.awayScore} - {game.homeScore}
-                            </div>
-                          ) : (
-                            <div className="text-gray-300 font-black italic text-base sm:text-lg px-2 whitespace-nowrap">
-                              VS
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex flex-col items-center md:items-start flex-1 min-w-0 w-full">
-                          <div className="inline-block">
-                            <div className="text-base sm:text-lg md:text-xl font-black text-center md:text-left whitespace-nowrap">
-                              {game.homeTeam}
-                              {index === day.games.length - 1 && (
-                                <CircleCheck
-                                  size={18}
-                                  className="inline-block ml-1 text-orange-500 align-[-3px]"
-                                />
-                              )}
-                            </div>
-                          </div>
+                  {day.games.length === 0 ? (
+                    <div className="bg-white rounded-2xl p-8 shadow-md border border-gray-200 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-3xl font-black text-gray-400 mb-2">
+                          休み
                         </div>
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    day.games.map((game, index) => (
+                      <div
+                        key={game.id}
+                        className="bg-white rounded-2xl p-6 shadow-md border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4"
+                      >
+                        <div className="flex items-center gap-4 w-full md:w-auto">
+                          <div className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-black whitespace-nowrap">
+                            第{index + 1}試合
+                          </div>
+                          <div className="flex items-center gap-2 text-blue-600 font-bold text-xl whitespace-nowrap">
+                            <Clock size={20} />
+                            {game.startTime}〜
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4 w-full md:flex-1">
+                          <div className="flex flex-col items-center md:items-end flex-1 min-w-0 w-full">
+                            <div className="inline-block">
+                              <div className="text-base sm:text-lg md:text-xl font-black text-center md:text-right whitespace-nowrap">
+                                {index === 0 && (
+                                  <Wrench
+                                    size={18}
+                                    className="inline-block mr-1 text-orange-500 align-[-3px]"
+                                  />
+                                )}
+                                {game.awayTeam}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-center shrink-0 px-2">
+                            {game.forfeitWinner !== null ? (
+                              <div className="flex flex-col sm:flex-row items-center gap-1 px-1">
+                                <span
+                                  className={`font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${game.forfeitWinner === "away" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}
+                                >
+                                  {game.forfeitWinner === "away"
+                                    ? "不戦勝"
+                                    : "不戦敗"}
+                                </span>
+                                <span
+                                  className={`font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${game.forfeitWinner === "home" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}
+                                >
+                                  {game.forfeitWinner === "home"
+                                    ? "不戦勝"
+                                    : "不戦敗"}
+                                </span>
+                              </div>
+                            ) : game.isCanceled ? (
+                              <div className="text-sm sm:text-base font-black text-red-600 bg-red-50 px-3 py-1 rounded-xl border border-red-200 whitespace-nowrap">
+                                中止
+                              </div>
+                            ) : game.awayScore !== null &&
+                              game.homeScore !== null ? (
+                              <div className="text-base sm:text-lg md:text-xl font-black text-zinc-800 bg-zinc-50 px-3 py-1 rounded-xl border border-zinc-200 whitespace-nowrap">
+                                {game.awayScore} - {game.homeScore}
+                              </div>
+                            ) : (
+                              <div className="text-gray-300 font-black italic text-base sm:text-lg px-2 whitespace-nowrap">
+                                VS
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col items-center md:items-start flex-1 min-w-0 w-full">
+                            <div className="inline-block">
+                              <div className="text-base sm:text-lg md:text-xl font-black text-center md:text-left whitespace-nowrap">
+                                {game.homeTeam}
+                                {index === day.games.length - 1 && (
+                                  <CircleCheck
+                                    size={18}
+                                    className="inline-block ml-1 text-orange-500 align-[-3px]"
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
 
                   {day.restTeams.length > 0 && (
                     <div className="mt-2 bg-red-100 border-2 border-dashed border-red-200 rounded-2xl p-4">
@@ -150,6 +173,19 @@ export default async function SchedulePage() {
                             </span>
                           ))}
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(day.note || day.resultNote) && (
+                    <div className="mt-2 bg-blue-100 border-2 border-dashed border-blue-200 rounded-2xl p-4">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="bg-blue-400 text-white font-black px-2 py-1 rounded">
+                          備考
+                        </span>
+                        <span className="text-gray-700 font-bold">
+                          {day.resultNote || day.note}
+                        </span>
                       </div>
                     </div>
                   )}

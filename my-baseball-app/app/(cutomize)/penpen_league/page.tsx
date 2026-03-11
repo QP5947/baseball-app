@@ -19,11 +19,14 @@ const hasScoredGame = (date: {
     awayScore: number | null;
     homeScore: number | null;
     isCanceled: boolean;
+    forfeitWinner: "away" | "home" | null;
   }[];
 }) =>
   date.games.some(
     (game) =>
-      game.isCanceled || (game.awayScore !== null && game.homeScore !== null),
+      game.forfeitWinner !== null ||
+      game.isCanceled ||
+      (game.awayScore !== null && game.homeScore !== null),
   );
 
 export default async function HomePage() {
@@ -41,7 +44,14 @@ export default async function HomePage() {
     .find((entry) => hasScoredGame(entry));
 
   const nextEntry = entries.find(
-    (entry) => entry.date >= today && entry.games.length > 0,
+    (entry) =>
+      entry.date >= today &&
+      entry.games.some(
+        (game) =>
+          !game.isCanceled &&
+          game.forfeitWinner === null &&
+          (game.awayScore === null || game.homeScore === null),
+      ),
   );
 
   return (
@@ -140,65 +150,98 @@ export default async function HomePage() {
                 結果データはまだありません。
               </p>
             ) : (
-              <div className="divide-y-2 divide-gray-100">
-                {previousEntry.games.map((game, idx) => (
-                  <div key={game.id} className="p-6 md:p-8">
-                    <div className="text-gray-500 font-bold text-lg mb-3">
-                      第{idx + 1}試合
+              <>
+                <div className="divide-y-2 divide-gray-100">
+                  {previousEntry.games.map((game, idx) => (
+                    <div key={game.id} className="p-6 md:p-8">
+                      <div className="text-gray-500 font-bold text-lg mb-3">
+                        第{idx + 1}試合
+                      </div>
+                      <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-3">
+                        <div className="flex-1 text-center md:text-right w-full">
+                          <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
+                            {idx === 0 && (
+                              <Wrench
+                                size={18}
+                                className="inline-block mr-1 text-orange-500 align-[-3px]"
+                              />
+                            )}
+                            {game.awayTeam}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-center space-x-3 shrink-0 px-2">
+                          {game.forfeitWinner !== null ? (
+                            <div className="flex flex-col sm:flex-row items-center gap-1">
+                              <span
+                                className={`text-sm font-bold px-2 py-0.5 rounded-full ${game.forfeitWinner === "away" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}
+                              >
+                                {game.forfeitWinner === "away"
+                                  ? "不戦勝"
+                                  : "不戦敗"}
+                              </span>
+                              <span
+                                className={`text-sm font-bold px-2 py-0.5 rounded-full ${game.forfeitWinner === "home" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}
+                              >
+                                {game.forfeitWinner === "home"
+                                  ? "不戦勝"
+                                  : "不戦敗"}
+                              </span>
+                            </div>
+                          ) : game.isCanceled ? (
+                            <span className="text-base font-black text-red-600">
+                              中止
+                            </span>
+                          ) : (
+                            <>
+                              <span className="text-2xl sm:text-3xl md:text-4xl font-black text-blue-700">
+                                {game.awayScore ?? "-"}
+                              </span>
+                              <span className="text-lg sm:text-xl text-gray-800">
+                                -
+                              </span>
+                              <span className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-800">
+                                {game.homeScore ?? "-"}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex-1 text-center md:text-left w-full">
+                          <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
+                            {game.homeTeam}
+                            {idx === previousEntry.games.length - 1 && (
+                              <CircleCheck
+                                size={18}
+                                className="inline-block ml-1 text-orange-500 align-[-3px]"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-3">
-                      <div className="flex-1 text-center md:text-right w-full">
-                        <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
-                          {idx === 0 && (
-                            <Wrench
-                              size={18}
-                              className="inline-block mr-1 text-orange-500 align-[-3px]"
-                            />
-                          )}
-                          {game.awayTeam}
+                  ))}
+                </div>
+                {previousEntry.resultNote && (
+                  <div className="p-6 border-t-2 border-gray-100">
+                    <div className="text-gray-700">
+                      <div>
+                        <div className="font-bold text-gray-500 mb-1">
+                          結果備考
                         </div>
-                      </div>
-                      <div className="flex items-center justify-center space-x-3 shrink-0 px-2">
-                        {game.isCanceled ? (
-                          <span className="text-base font-black text-red-600">
-                            中止
-                          </span>
-                        ) : (
-                          <>
-                            <span className="text-2xl sm:text-3xl md:text-4xl font-black text-blue-700">
-                              {game.awayScore ?? "-"}
-                            </span>
-                            <span className="text-lg sm:text-xl text-gray-800">
-                              -
-                            </span>
-                            <span className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-800">
-                              {game.homeScore ?? "-"}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex-1 text-center md:text-left w-full">
-                        <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
-                          {game.homeTeam}
-                          {idx === previousEntry.games.length - 1 && (
-                            <CircleCheck
-                              size={18}
-                              className="inline-block ml-1 text-orange-500 align-[-3px]"
-                            />
-                          )}
-                        </div>
+                        <p className="text-base whitespace-pre-wrap">
+                          {previousEntry.resultNote}
+                        </p>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </section>
 
           <section className="bg-blue-50 rounded-4xl shadow-lg border-2 border-blue-200 overflow-hidden">
             <div className="bg-blue-600 text-white p-6 flex justify-between items-center flex-nowrap">
               <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2 whitespace-nowrap shrink-0">
-                <Calendar size={28} /> 次回の予告
+                <Calendar size={28} /> 次回の試合
               </h2>
               <span className="text-base sm:text-xl font-bold whitespace-nowrap ml-3 shrink-0">
                 {nextEntry ? toDisplayDate(nextEntry.date) : "-"}
@@ -209,6 +252,30 @@ export default async function HomePage() {
               <p className="p-6 text-base text-gray-500">
                 次回日程はまだありません。
               </p>
+            ) : nextEntry.games.length === 0 ? (
+              <>
+                <div className="p-8 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="text-3xl font-black text-gray-400 mb-2">
+                      休み
+                    </div>
+                  </div>
+                </div>
+                {nextEntry.note && (
+                  <div className="p-6 border-t-2 border-blue-100">
+                    <div className="text-blue-700">
+                      <div>
+                        <div className="font-bold text-sm text-blue-500 mb-1">
+                          備考
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">
+                          {nextEntry.note}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <>
                 <div className="p-4 bg-white mx-6 mt-6 rounded-xl border border-blue-100 flex items-center justify-center gap-2 text-blue-700 font-black text-xl">
@@ -249,6 +316,20 @@ export default async function HomePage() {
                     </div>
                   ))}
                 </div>
+                {nextEntry.note && (
+                  <div className="p-6 border-t-2 border-blue-100">
+                    <div className="text-blue-700">
+                      <div>
+                        <div className="font-bold text-sm text-blue-500 mb-1">
+                          備考
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">
+                          {nextEntry.note}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </section>
