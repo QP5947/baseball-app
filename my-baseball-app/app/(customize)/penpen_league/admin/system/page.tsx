@@ -9,6 +9,7 @@ import {
   resolvePenpenImageUrl,
 } from "../../lib/penpenStorage";
 import {
+  penpenAdminChangePassword,
   penpenAdminMutate,
   penpenAdminRemoveImage,
   penpenAdminUploadImage,
@@ -18,14 +19,12 @@ type SystemSettings = {
   title: string;
   subtitle: string;
   headerImagePath: string;
-  adminPasswordHash: string;
 };
 
 const defaultSettings: SystemSettings = {
   title: "PENPEN LEAGUE",
   subtitle: "草野球リーグ公式サイト",
   headerImagePath: "",
-  adminPasswordHash: "",
 };
 
 export default function PenpenAdminSystemPage() {
@@ -47,7 +46,6 @@ export default function PenpenAdminSystemPage() {
     useState<File | null>(null);
   const [settingsMessage, setSettingsMessage] = useState("");
 
-  const [savedPassword, setSavedPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -58,9 +56,7 @@ export default function PenpenAdminSystemPage() {
       const { data, error } = await supabase
         .schema("penpen")
         .from("settings")
-        .select(
-          "site_title, site_subtitle, header_image_url, admin_password_hash",
-        )
+        .select("site_title, site_subtitle, header_image_url")
         .eq("id", true)
         .single();
 
@@ -80,7 +76,6 @@ export default function PenpenAdminSystemPage() {
           PENPEN_DEFAULT_HEADER_IMAGE,
         ),
       );
-      setSavedPassword(data.admin_password_hash ?? "");
     };
 
     void load();
@@ -99,7 +94,6 @@ export default function PenpenAdminSystemPage() {
             site_title: next.title,
             site_subtitle: next.subtitle,
             header_image_url: next.headerImagePath || null,
-            admin_password_hash: savedPassword || null,
           },
         ],
         onConflict: "id",
@@ -184,31 +178,13 @@ export default function PenpenAdminSystemPage() {
       return;
     }
 
-    if (savedPassword && currentPassword !== savedPassword) {
-      setPasswordMessage("現在のパスワードが一致しません。");
-      return;
-    }
-
     if (newPassword !== confirmPassword) {
       setPasswordMessage("新しいパスワード（確認）が一致しません。");
       return;
     }
 
     try {
-      await penpenAdminMutate({
-        action: "upsert",
-        table: "settings",
-        rows: [
-          {
-            id: true,
-            site_title: title.trim(),
-            site_subtitle: subtitle.trim(),
-            header_image_url: headerImagePath || null,
-            admin_password_hash: newPassword,
-          },
-        ],
-        onConflict: "id",
-      });
+      await penpenAdminChangePassword(currentPassword, newPassword);
     } catch (error) {
       setPasswordMessage(
         `パスワード変更に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
@@ -216,7 +192,6 @@ export default function PenpenAdminSystemPage() {
       return;
     }
 
-    setSavedPassword(newPassword);
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
@@ -326,9 +301,7 @@ export default function PenpenAdminSystemPage() {
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-6">
           <h2 className="text-xl font-black text-gray-900">パスワード変更</h2>
           <p className="text-base text-gray-600 mt-2">
-            {savedPassword
-              ? "現在のパスワードを入力して変更してください。"
-              : "まだパスワード未設定です。新しいパスワードを設定してください。"}
+            現在のパスワードを入力して変更してください。未設定時は空欄で変更できます。
           </p>
 
           <form onSubmit={handlePasswordChange} className="mt-4 space-y-4">
