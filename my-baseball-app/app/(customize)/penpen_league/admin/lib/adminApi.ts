@@ -94,3 +94,23 @@ export const penpenAdminRemoveImage = async (
     throw new Error(await parseErrorMessage(response));
   }
 };
+
+export const penpenAdminChangePassword = async (
+  currentPassword: string,
+  newPassword: string,
+) => {
+  const response = await fetch("/penpen_league/admin/api/password", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      currentPassword,
+      newPassword,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
+  }
+};

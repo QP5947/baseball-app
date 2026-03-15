@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-
-const PENPEN_ADMIN_COOKIE = "penpen_admin_session";
-
-const getCookieOptions = (maxAge: number) => ({
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
-  path: "/penpen_league/admin",
-  maxAge,
-});
+import { createServiceClient } from "@/lib/supabase/service";
+import {
+  getPenpenAdminCookieOptions,
+  hashPenpenPassword,
+  isPenpenPasswordHash,
+  PENPEN_ADMIN_COOKIE,
+  verifyPenpenPassword,
+} from "../_shared";
 
 export async function POST(request: NextRequest) {
   let body: { adminId?: unknown; password?: unknown };
@@ -33,7 +30,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data, error } = await supabase
     .schema("penpen")
     .from("settings")
@@ -49,24 +46,42 @@ export async function POST(request: NextRequest) {
   }
 
   const savedPassword = data.admin_password_hash ?? "";
-  if (savedPassword && password !== savedPassword) {
+  const isValidPassword = await verifyPenpenPassword(password, savedPassword);
+
+  if (!isValidPassword) {
     return NextResponse.json(
       { message: "パスワードが正しくありません。" },
       { status: 401 },
     );
   }
 
+  if (savedPassword && !isPenpenPasswordHash(savedPassword)) {
+    try {
+      const hashedPassword = await hashPenpenPassword(password);
+      await supabase
+        .schema("penpen")
+        .from("settings")
+        .update({ admin_password_hash: hashedPassword })
+        .eq("id", true);
+    } catch (upgradeError) {
+      console.error(
+        "[penpen-admin] failed to upgrade password hash",
+        upgradeError,
+      );
+    }
+  }
+
   const response = NextResponse.json({ ok: true });
   response.cookies.set(
     PENPEN_ADMIN_COOKIE,
     "1",
-    getCookieOptions(60 * 60 * 12),
+    getPenpenAdminCookieOptions(60 * 60 * 12),
   );
   return response;
 }
 
 export async function DELETE() {
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(PENPEN_ADMIN_COOKIE, "", getCookieOptions(0));
+  response.cookies.set(PENPEN_ADMIN_COOKIE, "", getPenpenAdminCookieOptions(0));
   return response;
 }
