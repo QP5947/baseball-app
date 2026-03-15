@@ -133,53 +133,84 @@ export default function PenpenAdminResultsPage() {
     }));
   };
 
-  const handleSaveByDate = async (entry: PenpenScheduleEntry) => {
-    try {
-      const rows = entry.games.map((game) => {
-        const current = resultMap[game.id] ?? {
-          awayScore: "",
-          homeScore: "",
-          canceled: false,
-          forfeitWinner: null,
-        };
+  const applySavedEntry = (entryId: string) => {
+    setScheduleEntries((prev) =>
+      prev.map((entry) => {
+        if (entry.id !== entryId) {
+          return entry;
+        }
 
         return {
-          scheduled_game_id: game.id,
-          away_score:
-            current.canceled ||
-            current.forfeitWinner !== null ||
-            current.awayScore === ""
-              ? null
-              : Number(current.awayScore),
-          home_score:
-            current.canceled ||
-            current.forfeitWinner !== null ||
-            current.homeScore === ""
-              ? null
-              : Number(current.homeScore),
-          is_canceled: current.canceled,
-          forfeit_winner: current.forfeitWinner,
+          ...entry,
+          resultNote: entryNoteMap[entryId] ?? "",
+          games: entry.games.map((game) => {
+            const current = resultMap[game.id] ?? {
+              awayScore: "",
+              homeScore: "",
+              canceled: false,
+              forfeitWinner: null,
+            };
+
+            return {
+              ...game,
+              awayScore:
+                current.canceled ||
+                current.forfeitWinner !== null ||
+                current.awayScore === ""
+                  ? null
+                  : Number(current.awayScore),
+              homeScore:
+                current.canceled ||
+                current.forfeitWinner !== null ||
+                current.homeScore === ""
+                  ? null
+                  : Number(current.homeScore),
+              isCanceled: current.canceled,
+              forfeitWinner: current.forfeitWinner,
+            };
+          }),
         };
+      }),
+    );
+  };
+
+  const handleSaveByDate = async (entry: PenpenScheduleEntry) => {
+    try {
+      const response = await fetch("/penpen_league/admin/api/results", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          scheduleDayId: entry.id,
+          note: entryNoteMap[entry.id] ?? "",
+          games: entry.games.map((game) => {
+            const current = resultMap[game.id] ?? {
+              awayScore: "",
+              homeScore: "",
+              canceled: false,
+              forfeitWinner: null,
+            };
+
+            return {
+              gameId: game.id,
+              awayScore: current.awayScore,
+              homeScore: current.homeScore,
+              canceled: current.canceled,
+              forfeitWinner: current.forfeitWinner,
+            };
+          }),
+        }),
       });
 
-      if (rows.length > 0) {
-        const { error } = await supabase
-          .schema("penpen")
-          .from("game_results")
-          .upsert(rows, { onConflict: "scheduled_game_id" });
-        if (error) throw error;
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+        throw new Error(payload?.message ?? "unknown");
       }
 
-      const { error: dayResultError } = await supabase
-        .schema("penpen")
-        .from("schedule_day_results")
-        .upsert({
-          schedule_day_id: entry.id,
-          note: entryNoteMap[entry.id] ?? "",
-          is_finalized: false,
-        });
-
-      if (dayResultError) throw dayResultError;
+      applySavedEntry(entry.id);
 
       window.alert(`${entry.date} の試合結果を保存しました。`);
     } catch (error) {

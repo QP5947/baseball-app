@@ -134,56 +134,86 @@ export default function OneDayResultForm() {
     }));
   };
 
+  const applySavedEntry = (entryId: string) => {
+    setScheduleEntries((prev) =>
+      prev.map((entry) => {
+        if (entry.id !== entryId) {
+          return entry;
+        }
+
+        return {
+          ...entry,
+          resultNote: entryNoteMap[entryId] ?? "",
+          games: entry.games.map((game) => {
+            const current = resultMap[game.id] ?? {
+              awayScore: "",
+              homeScore: "",
+              canceled: false,
+              forfeitWinner: null,
+            };
+
+            return {
+              ...game,
+              awayScore:
+                current.canceled ||
+                current.forfeitWinner !== null ||
+                current.awayScore === ""
+                  ? null
+                  : Number(current.awayScore),
+              homeScore:
+                current.canceled ||
+                current.forfeitWinner !== null ||
+                current.homeScore === ""
+                  ? null
+                  : Number(current.homeScore),
+              isCanceled: current.canceled,
+              forfeitWinner: current.forfeitWinner,
+            };
+          }),
+        };
+      }),
+    );
+  };
+
   const handleSave = async () => {
     if (!selectedEntry) return;
 
     try {
-      const rows = selectedEntry.games.map((game) => {
-        const current = resultMap[game.id] ?? {
-          awayScore: "",
-          homeScore: "",
-          canceled: false,
-          forfeitWinner: null,
-        };
+      const response = await fetch("/penpen_league/admin/api/results", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          scheduleDayId: selectedEntry.id,
+          note: entryNoteMap[selectedEntry.id] ?? "",
+          games: selectedEntry.games.map((game) => {
+            const current = resultMap[game.id] ?? {
+              awayScore: "",
+              homeScore: "",
+              canceled: false,
+              forfeitWinner: null,
+            };
 
-        return {
-          scheduled_game_id: game.id,
-          away_score:
-            current.canceled ||
-            current.forfeitWinner !== null ||
-            current.awayScore === ""
-              ? null
-              : Number(current.awayScore),
-          home_score:
-            current.canceled ||
-            current.forfeitWinner !== null ||
-            current.homeScore === ""
-              ? null
-              : Number(current.homeScore),
-          is_canceled: current.canceled,
-          forfeit_winner: current.forfeitWinner,
-        };
+            return {
+              gameId: game.id,
+              awayScore: current.awayScore,
+              homeScore: current.homeScore,
+              canceled: current.canceled,
+              forfeitWinner: current.forfeitWinner,
+            };
+          }),
+        }),
       });
 
-      if (rows.length > 0) {
-        const { error } = await supabase
-          .schema("penpen")
-          .from("game_results")
-          .upsert(rows, { onConflict: "scheduled_game_id" });
-
-        if (error) throw error;
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          message?: string;
+        } | null;
+        throw new Error(payload?.message ?? "unknown");
       }
 
-      const { error: noteError } = await supabase
-        .schema("penpen")
-        .from("schedule_day_results")
-        .upsert({
-          schedule_day_id: selectedEntry.id,
-          note: entryNoteMap[selectedEntry.id] ?? "",
-          is_finalized: false,
-        });
-
-      if (noteError) throw noteError;
+      applySavedEntry(selectedEntry.id);
 
       window.alert(`${selectedEntry.date} の試合結果を保存しました。`);
     } catch (error) {

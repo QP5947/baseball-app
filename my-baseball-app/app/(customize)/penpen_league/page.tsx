@@ -15,20 +15,25 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchPenpenScheduleEntries, toDisplayDate } from "./lib/penpenData";
 import { fetchPenpenHeaderImageUrl } from "./lib/penpenStorage";
 
-const hasScoredGame = (date: {
-  games: {
-    awayScore: number | null;
-    homeScore: number | null;
-    isCanceled: boolean;
-    forfeitWinner: "away" | "home" | null;
-  }[];
-}) =>
+type PenpenGame = {
+  awayScore: number | null;
+  homeScore: number | null;
+  isCanceled: boolean;
+  forfeitWinner: "away" | "home" | null;
+};
+
+const hasScoredGame = (date: { games: PenpenGame[] }) =>
   date.games.some(
     (game) =>
       game.forfeitWinner !== null ||
       game.isCanceled ||
       (game.awayScore !== null && game.homeScore !== null),
   );
+
+const isPendingGame = (game: PenpenGame) =>
+  !game.isCanceled &&
+  game.forfeitWinner === null &&
+  (game.awayScore === null || game.homeScore === null);
 
 export const metadata: Metadata = { title: "ペンペンリーグ" };
 
@@ -49,12 +54,18 @@ export default async function HomePage() {
   const nextEntry = entries.find(
     (entry) =>
       entry.date >= today &&
-      entry.games.some(
-        (game) =>
-          !game.isCanceled &&
-          game.forfeitWinner === null &&
-          (game.awayScore === null || game.homeScore === null),
-      ),
+      !hasScoredGame(entry) &&
+      entry.games.some(isPendingGame),
+  );
+
+  const pendingNextGames = nextEntry
+    ? nextEntry.games
+        .map((game, originalIndex) => ({ game, originalIndex }))
+        .filter(({ game }) => isPendingGame(game))
+    : [];
+
+  const nextEntryRestTeams = (nextEntry?.restTeams ?? []).filter(
+    (team) => team.trim().length > 0,
   );
 
   return (
@@ -264,6 +275,20 @@ export default async function HomePage() {
                     </div>
                   </div>
                 </div>
+                {nextEntryRestTeams.length > 0 && (
+                  <div className="p-6 border-t-2 border-blue-100">
+                    <div className="text-blue-700">
+                      <div>
+                        <div className="font-bold text-sm text-blue-500 mb-1">
+                          休みチーム
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">
+                          {nextEntryRestTeams.join(" / ")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {nextEntry.note && (
                   <div className="p-6 border-t-2 border-blue-100">
                     <div className="text-blue-700">
@@ -285,17 +310,18 @@ export default async function HomePage() {
                   <MapPin size={24} /> {nextEntry.stadium || "会場未設定"}
                 </div>
                 <div className="p-6 space-y-4">
-                  {nextEntry.games.map((game, idx) => (
+                  {pendingNextGames.map(({ game, originalIndex }) => (
                     <div
                       key={game.id}
                       className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100"
                     >
                       <div className="flex items-center gap-2 text-blue-600 font-bold mb-2 text-lg">
-                        <Clock size={20} /> {game.startTime}〜 (第{idx + 1}試合)
+                        <Clock size={20} /> {game.startTime}〜 (第
+                        {originalIndex + 1}試合)
                       </div>
                       <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-4">
                         <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-center md:text-left w-full md:w-auto">
-                          {idx === 0 && (
+                          {originalIndex === 0 && (
                             <Wrench
                               size={18}
                               className="inline-block mr-1 text-orange-500 align-[-3px]"
@@ -308,7 +334,7 @@ export default async function HomePage() {
                         </span>
                         <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-center md:text-right w-full md:w-auto">
                           {game.homeTeam}
-                          {idx === nextEntry.games.length - 1 && (
+                          {originalIndex === nextEntry.games.length - 1 && (
                             <CircleCheck
                               size={18}
                               className="inline-block ml-1 text-orange-500 align-[-3px]"
@@ -319,6 +345,20 @@ export default async function HomePage() {
                     </div>
                   ))}
                 </div>
+                {nextEntryRestTeams.length > 0 && (
+                  <div className="p-6 border-t-2 border-blue-100">
+                    <div className="text-blue-700">
+                      <div>
+                        <div className="font-bold text-sm text-blue-500 mb-1">
+                          休みチーム
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">
+                          {nextEntryRestTeams.join(" / ")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {nextEntry.note && (
                   <div className="p-6 border-t-2 border-blue-100">
                     <div className="text-blue-700">
