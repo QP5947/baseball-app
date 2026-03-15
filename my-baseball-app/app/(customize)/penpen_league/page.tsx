@@ -176,7 +176,7 @@ export default async function HomePage() {
                         第{idx + 1}試合
                       </div>
                       <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-3">
-                        <div className="flex-1 text-center md:text-right w-full">
+                        <div className="flex-1 text-left md:text-right w-full">
                           <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
                             {idx === 0 && (
                               <DoorOpen
@@ -223,7 +223,7 @@ export default async function HomePage() {
                             </>
                           )}
                         </div>
-                        <div className="flex-1 text-center md:text-left w-full">
+                        <div className="flex-1 text-right md:text-left w-full">
                           <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
                             {game.homeTeam}
                             {idx === previousEntry.games.length - 1 && (
@@ -338,7 +338,7 @@ export default async function HomePage() {
                         {originalIndex + 1}試合)
                       </div>
                       <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-4">
-                        <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-center md:text-left w-full md:w-auto">
+                        <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-left md:text-left w-full md:w-auto">
                           {originalIndex === 0 && (
                             <DoorOpen
                               size={18}
@@ -350,7 +350,7 @@ export default async function HomePage() {
                         <span className="text-base sm:text-lg font-bold text-gray-400 italic">
                           VS
                         </span>
-                        <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-center md:text-right w-full md:w-auto">
+                        <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-right md:text-right w-full md:w-auto">
                           {game.homeTeam}
                           {originalIndex === nextEntry.games.length - 1 && (
                             <DoorClosedLocked

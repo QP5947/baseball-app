@@ -94,9 +94,9 @@ export default async function SchedulePage() {
                         </div>
 
                         <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4 w-full md:flex-1">
-                          <div className="flex flex-col items-center md:items-end flex-1 min-w-0 w-full">
+                          <div className="flex flex-col items-start md:items-end flex-1 min-w-0 w-full">
                             <div className="inline-block">
-                              <div className="text-base sm:text-lg md:text-xl font-black text-center md:text-right whitespace-nowrap">
+                              <div className="text-base sm:text-lg md:text-xl font-black text-left md:text-right whitespace-nowrap">
                                 {index === 0 && (
                                   <DoorOpen
                                     size={18}
@@ -142,9 +142,9 @@ export default async function SchedulePage() {
                             )}
                           </div>
 
-                          <div className="flex flex-col items-center md:items-start flex-1 min-w-0 w-full">
+                          <div className="flex flex-col items-end md:items-start flex-1 min-w-0 w-full">
                             <div className="inline-block">
-                              <div className="text-base sm:text-lg md:text-xl font-black text-center md:text-left whitespace-nowrap">
+                              <div className="text-base sm:text-lg md:text-xl font-black text-right md:text-left whitespace-nowrap">
                                 {game.homeTeam}
                                 {index === day.games.length - 1 && (
                                   <DoorClosedLocked

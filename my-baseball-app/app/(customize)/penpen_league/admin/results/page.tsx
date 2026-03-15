@@ -261,6 +261,17 @@ export default function PenpenAdminResultsPage() {
             )}
           </div>
 
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base font-bold text-gray-700">
+            <span className="inline-flex items-center gap-1">
+              <DoorOpen size={18} className="text-orange-500" />
+              準備当番
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <DoorClosedLocked size={18} className="text-orange-500" />
+              片付け当番
+            </span>
+          </div>
+
           {filteredEntries.length === 0 ? (
             <p className="text-base text-gray-500">
               該当期間の試合日程データがありません。
@@ -296,23 +307,6 @@ export default function PenpenAdminResultsPage() {
                     </button>
                   </div>
 
-                  {entry.games.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base font-bold text-gray-700">
-                      <span className="inline-flex items-center gap-1">
-                        <DoorOpen size={18} className="text-orange-500" />
-                        準備当番: {entry.games[0].awayTeam}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <DoorClosedLocked
-                          size={18}
-                          className="text-orange-500"
-                        />
-                        片付け当番:{" "}
-                        {entry.games[entry.games.length - 1].homeTeam}
-                      </span>
-                    </div>
-                  )}
-
                   {entry.games.length === 0 ? (
                     <p className="text-base font-bold text-gray-700">
                       休み（試合なし）
@@ -338,66 +332,70 @@ export default function PenpenAdminResultsPage() {
                                   : "border-gray-200 bg-white"
                             }`}
                           >
-                            <div className="overflow-x-auto">
-                              <div className="inline-flex min-w-max items-center gap-4 whitespace-nowrap text-base font-bold text-gray-800">
+                            <div className="md:overflow-x-auto">
+                              <div className="space-y-3 text-base font-bold text-gray-800 md:inline-flex md:min-w-max md:items-center md:gap-4 md:space-y-0 md:whitespace-nowrap">
                                 <p>
                                   {game.startTime}〜{game.endTime}
                                 </p>
-                                <span className="inline-flex items-center gap-1">
-                                  {idx === 0 && (
-                                    <DoorOpen
-                                      size={16}
-                                      className="text-orange-500"
+                                <div className="flex flex-col items-start gap-2 md:flex-row md:items-center md:gap-4">
+                                  <span className="inline-flex items-center gap-1">
+                                    {idx === 0 && (
+                                      <DoorOpen
+                                        size={16}
+                                        className="text-orange-500"
+                                      />
+                                    )}
+                                    {game.awayTeam}
+                                  </span>
+                                  <div className="inline-flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={result.awayScore}
+                                      onChange={(event) =>
+                                        updateResult(
+                                          game.id,
+                                          "awayScore",
+                                          event.target.value,
+                                        )
+                                      }
+                                      className="w-20 rounded-lg border border-gray-300 px-2 py-1"
+                                      disabled={
+                                        result.canceled ||
+                                        result.forfeitWinner !== null
+                                      }
                                     />
-                                  )}
-                                  {game.awayTeam}
-                                </span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  value={result.awayScore}
-                                  onChange={(event) =>
-                                    updateResult(
-                                      game.id,
-                                      "awayScore",
-                                      event.target.value,
-                                    )
-                                  }
-                                  className="w-20 rounded-lg border border-gray-300 px-2 py-1"
-                                  disabled={
-                                    result.canceled ||
-                                    result.forfeitWinner !== null
-                                  }
-                                />
-                                <span>-</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  value={result.homeScore}
-                                  onChange={(event) =>
-                                    updateResult(
-                                      game.id,
-                                      "homeScore",
-                                      event.target.value,
-                                    )
-                                  }
-                                  className="w-20 rounded-lg border border-gray-300 px-2 py-1"
-                                  disabled={
-                                    result.canceled ||
-                                    result.forfeitWinner !== null
-                                  }
-                                />
-                                <span className="inline-flex items-center gap-1">
-                                  {idx === entry.games.length - 1 && (
-                                    <DoorClosedLocked
-                                      size={16}
-                                      className="text-orange-500"
+                                    <span>-</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={result.homeScore}
+                                      onChange={(event) =>
+                                        updateResult(
+                                          game.id,
+                                          "homeScore",
+                                          event.target.value,
+                                        )
+                                      }
+                                      className="w-20 rounded-lg border border-gray-300 px-2 py-1"
+                                      disabled={
+                                        result.canceled ||
+                                        result.forfeitWinner !== null
+                                      }
                                     />
-                                  )}
-                                  {game.homeTeam}
-                                </span>
-                                <div className="inline-flex flex-col items-start gap-2 text-base font-bold text-gray-700">
-                                  <div className="inline-flex items-center gap-4">
+                                  </div>
+                                  <span className="inline-flex items-center gap-1 self-end md:self-auto">
+                                    {idx === entry.games.length - 1 && (
+                                      <DoorClosedLocked
+                                        size={16}
+                                        className="text-orange-500"
+                                      />
+                                    )}
+                                    {game.homeTeam}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col items-start gap-2 text-base font-bold text-gray-700">
+                                  <div className="flex flex-wrap items-center gap-4">
                                     <label className="inline-flex items-center gap-2">
                                       <input
                                         type="checkbox"
@@ -432,7 +430,7 @@ export default function PenpenAdminResultsPage() {
                                     </label>
                                   </div>
                                   {result.forfeitWinner !== null && (
-                                    <div className="inline-flex items-center gap-2 pl-1">
+                                    <div className="flex flex-col items-start gap-2 pl-1 md:flex-row md:items-center">
                                       <label className="inline-flex items-center gap-1">
                                         <input
                                           type="radio"
