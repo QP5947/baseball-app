@@ -88,6 +88,41 @@ export default function StandingsPage() {
     [standings],
   );
 
+  const getWinRate = (team: TeamStanding) =>
+    team.w + team.l > 0 ? team.w / (team.w + team.l) : 0;
+
+  const isSameRank = (a: TeamStanding, b: TeamStanding) => {
+    if (a.pts !== b.pts) {
+      return false;
+    }
+
+    const aGames = a.w + a.l;
+    const bGames = b.w + b.l;
+    if (aGames === 0 || bGames === 0) {
+      return aGames === bGames;
+    }
+
+    return a.w * bGames === b.w * aGames;
+  };
+
+  const rankedTeams = useMemo(() => {
+    let currentRank = 0;
+    let previousTeam: TeamStanding | undefined;
+
+    return orderedTeams.map((team, index) => {
+      if (!previousTeam || !isSameRank(team, previousTeam)) {
+        currentRank = index + 1;
+      }
+
+      previousTeam = team;
+      return {
+        team,
+        rank: currentRank,
+        winRate: getWinRate(team),
+      };
+    });
+  }, [orderedTeams]);
+
   const getResultSymbols = (results: GameResult[] | undefined) => {
     if (!results || results.length === 0)
       return <span className="text-slate-200">-</span>;
@@ -235,13 +270,13 @@ export default function StandingsPage() {
                       </tr>
                     </thead>
                     <tbody className="font-bold">
-                      {orderedTeams.map((team, idx) => (
+                      {rankedTeams.map(({ team, rank, winRate }) => (
                         <tr
                           key={team.teamId}
                           className="hover:bg-blue-50/50 transition-colors"
                         >
                           <td className="p-3 border border-slate-100 text-center italic font-black text-slate-400">
-                            {idx + 1}
+                            {rank}
                           </td>
                           <td className="p-3 border border-slate-100 text-slate-800">
                             {team.name}
@@ -259,12 +294,7 @@ export default function StandingsPage() {
                             {team.d}
                           </td>
                           <td className="p-3 border border-slate-100 text-center text-slate-500 font-mono">
-                            {(team.w + team.l > 0
-                              ? team.w / (team.w + team.l)
-                              : 0
-                            )
-                              .toFixed(3)
-                              .substring(1)}
+                            {winRate.toFixed(3).substring(1)}
                           </td>
                           <td className="p-3 border border-slate-100 text-center bg-amber-50 text-amber-700 text-xl font-black">
                             {team.pts}
@@ -305,13 +335,13 @@ export default function StandingsPage() {
                       </tr>
                     </thead>
                     <tbody className="font-bold">
-                      {orderedTeams.map((team, idx) => (
+                      {rankedTeams.map(({ team, rank }) => (
                         <tr
                           key={team.teamId}
                           className="hover:bg-blue-50/50 transition-colors"
                         >
                           <td className="p-3 border border-slate-100 text-center italic font-black text-slate-400">
-                            {idx + 1}
+                            {rank}
                           </td>
                           <td className="p-3 border border-slate-100 text-slate-800">
                             {team.name}

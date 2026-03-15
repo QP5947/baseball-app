@@ -401,14 +401,12 @@ export function computeStandings(
 
       if (game.awayScore > game.homeScore) {
         away.w += 1;
-        away.pts += game.awayScore;
         home.l += 1;
         away.resultByTeamId[home.teamId].push("w");
         home.resultByTeamId[away.teamId].push("l");
       } else if (game.awayScore < game.homeScore) {
         away.l += 1;
         home.w += 1;
-        home.pts += game.homeScore;
         away.resultByTeamId[home.teamId].push("l");
         home.resultByTeamId[away.teamId].push("w");
       } else {
@@ -420,8 +418,15 @@ export function computeStandings(
     });
   });
 
+  rowMap.forEach((row) => {
+    row.pts = row.w * 2 + row.d;
+  });
+
   return [...rowMap.values()].sort((a, b) => {
     if (b.pts !== a.pts) return b.pts - a.pts;
+    const aWinRate = a.w + a.l > 0 ? a.w / (a.w + a.l) : 0;
+    const bWinRate = b.w + b.l > 0 ? b.w / (b.w + b.l) : 0;
+    if (bWinRate !== aWinRate) return bWinRate - aWinRate;
     if (b.diff !== a.diff) return b.diff - a.diff;
     return a.name.localeCompare(b.name, "ja");
   });
