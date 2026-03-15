@@ -244,10 +244,8 @@ const parseBody = (value: unknown): MutateBody | null => {
   };
 };
 
-const applyMatch = (
-  query: ReturnType<ReturnType<typeof createServiceClient>["schema"]>["from"],
-  match: MatchCondition[],
-) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const applyMatch = (query: any, match: MatchCondition[]) => {
   let next = query;
   for (const condition of match) {
     next = next.eq(condition.column, condition.value);
@@ -255,10 +253,8 @@ const applyMatch = (
   return next;
 };
 
-const maybeSelect = (
-  query: ReturnType<ReturnType<typeof createServiceClient>["schema"]>["from"],
-  returning: string[],
-) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const maybeSelect = (query: any, returning: string[]) => {
   if (returning.length === 0) {
     return query;
   }
@@ -340,6 +336,13 @@ export async function POST(request: NextRequest) {
     if (body.action === "ensureUndecidedTeam") {
       const teamId = await ensureUndecidedTeam();
       return NextResponse.json({ ok: true, data: { teamId } });
+    }
+
+    if (!body.table) {
+      return NextResponse.json(
+        { message: "テーブル名が指定されていません。" },
+        { status: 400 },
+      );
     }
 
     const supabase = createServiceClient();
