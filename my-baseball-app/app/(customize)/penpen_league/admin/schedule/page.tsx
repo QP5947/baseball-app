@@ -3,14 +3,15 @@
 import Link from "next/link";
 import {
   Calendar,
-  CircleCheck,
+  DoorClosedLocked,
+  DoorOpen,
   MapPin,
   Plus,
   Trash2,
-  Wrench,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { penpenAdminMutate } from "../lib/adminApi";
 import {
   fetchPenpenMasters,
   fetchPenpenScheduleEntries,
@@ -195,49 +196,11 @@ export default function PenpenAdminSchedulePage() {
   }, [teams, undecidedTeamId]);
 
   const ensureUndecidedTeam = useCallback(async () => {
-    const penpen = supabase.schema("penpen");
-
-    const { data: existing, error: fetchError } = await penpen
-      .from("teams")
-      .select("id")
-      .eq("name", "未定")
-      .maybeSingle();
-
-    if (fetchError) {
-      throw fetchError;
-    }
-    if (existing?.id) {
-      return existing.id;
-    }
-
-    const { data: created, error: createError } = await penpen
-      .from("teams")
-      .insert({
-        name: "未定",
-        is_enabled: false,
-        sort_order: 9999,
-      })
-      .select("id")
-      .single();
-
-    if (!createError && created?.id) {
-      return created.id;
-    }
-
-    const { data: retry, error: retryError } = await penpen
-      .from("teams")
-      .select("id")
-      .eq("name", "未定")
-      .maybeSingle();
-
-    if (retryError || !retry?.id) {
-      throw (
-        createError ?? retryError ?? new Error("未定チームの作成に失敗しました")
-      );
-    }
-
-    return retry.id;
-  }, [supabase]);
+    const response = await penpenAdminMutate<{ teamId: string }>({
+      action: "ensureUndecidedTeam",
+    });
+    return response.data.teamId;
+  }, []);
 
   const loadAll = useCallback(async () => {
     try {
@@ -391,14 +354,16 @@ export default function PenpenAdminSchedulePage() {
     );
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .schema("penpen")
-      .from("schedule_days")
-      .delete()
-      .eq("id", entryId);
-
-    if (error) {
-      window.alert(`日程の削除に失敗しました: ${error.message}`);
+    try {
+      await penpenAdminMutate({
+        action: "delete",
+        table: "schedule_days",
+        match: [{ column: "id", value: entryId }],
+      });
+    } catch (error) {
+      window.alert(
+        `日程の削除に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+      );
       return;
     }
 
@@ -442,45 +407,44 @@ export default function PenpenAdminSchedulePage() {
       let dayId = editingEntryId;
 
       if (!dayId) {
-        const { data, error } = await supabase
-          .schema("penpen")
-          .from("schedule_days")
-          .insert({
-            match_date: date,
-            stadium_id: stadiumId || null,
-            note: note || null,
-          })
-          .select("id")
-          .single();
+        const response = await penpenAdminMutate<{ id: string }>({
+          action: "insert",
+          table: "schedule_days",
+          rows: [
+            {
+              match_date: date,
+              stadium_id: stadiumId || null,
+              note: note || null,
+            },
+          ],
+          returning: ["id"],
+          single: true,
+        });
 
-        if (error || !data) {
-          throw new Error(error?.message ?? "日程の作成に失敗しました");
-        }
-        dayId = data.id;
+        dayId = response.data.id;
       } else {
-        const { error } = await supabase
-          .schema("penpen")
-          .from("schedule_days")
-          .update({
+        await penpenAdminMutate({
+          action: "update",
+          table: "schedule_days",
+          values: {
             match_date: date,
             stadium_id: stadiumId || null,
             note: note || null,
-          })
-          .eq("id", dayId);
-
-        if (error) throw error;
+          },
+          match: [{ column: "id", value: dayId }],
+        });
 
         await Promise.all([
-          supabase
-            .schema("penpen")
-            .from("scheduled_games")
-            .delete()
-            .eq("schedule_day_id", dayId),
-          supabase
-            .schema("penpen")
-            .from("schedule_day_rest_teams")
-            .delete()
-            .eq("schedule_day_id", dayId),
+          penpenAdminMutate({
+            action: "delete",
+            table: "scheduled_games",
+            match: [{ column: "schedule_day_id", value: dayId }],
+          }),
+          penpenAdminMutate({
+            action: "delete",
+            table: "schedule_day_rest_teams",
+            match: [{ column: "schedule_day_id", value: dayId }],
+          }),
         ]);
       }
 
@@ -501,12 +465,11 @@ export default function PenpenAdminSchedulePage() {
           };
         });
 
-        const { error } = await supabase
-          .schema("penpen")
-          .from("scheduled_games")
-          .insert(gameRows);
-
-        if (error) throw error;
+        await penpenAdminMutate({
+          action: "insert",
+          table: "scheduled_games",
+          rows: gameRows,
+        });
       }
 
       if (restTeamIds.length > 0) {
@@ -515,12 +478,11 @@ export default function PenpenAdminSchedulePage() {
           team_id: teamId,
         }));
 
-        const { error } = await supabase
-          .schema("penpen")
-          .from("schedule_day_rest_teams")
-          .insert(restRows);
-
-        if (error) throw error;
+        await penpenAdminMutate({
+          action: "insert",
+          table: "schedule_day_rest_teams",
+          rows: restRows,
+        });
       }
 
       resetForm();
@@ -929,11 +891,11 @@ export default function PenpenAdminSchedulePage() {
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base font-bold text-gray-700">
                             <span className="inline-flex items-center gap-1">
-                              <Wrench size={18} className="text-orange-500" />
+                              <DoorOpen size={18} className="text-orange-500" />
                               準備当番: {entry.games[0].awayTeam}
                             </span>
                             <span className="inline-flex items-center gap-1">
-                              <CircleCheck
+                              <DoorClosedLocked
                                 size={18}
                                 className="text-orange-500"
                               />
@@ -978,7 +940,7 @@ export default function PenpenAdminSchedulePage() {
                                     <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
                                       <span className="inline-flex items-center gap-1">
                                         {idx === 0 ? (
-                                          <Wrench
+                                          <DoorOpen
                                             size={16}
                                             className="text-orange-500"
                                           />
@@ -989,7 +951,7 @@ export default function PenpenAdminSchedulePage() {
                                     <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
                                       <span className="inline-flex items-center gap-1">
                                         {idx === entry.games.length - 1 ? (
-                                          <CircleCheck
+                                          <DoorClosedLocked
                                             size={16}
                                             className="text-orange-500"
                                           />

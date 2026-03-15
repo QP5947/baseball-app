@@ -7,8 +7,8 @@ import {
   FileText,
   MapPin,
   Clock,
-  Wrench,
-  CircleCheck,
+  DoorOpen,
+  DoorClosedLocked,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchPenpenScheduleEntries, toDisplayDate } from "../lib/penpenData";
@@ -98,7 +98,7 @@ export default async function SchedulePage() {
                             <div className="inline-block">
                               <div className="text-base sm:text-lg md:text-xl font-black text-center md:text-right whitespace-nowrap">
                                 {index === 0 && (
-                                  <Wrench
+                                  <DoorOpen
                                     size={18}
                                     className="inline-block mr-1 text-orange-500 align-[-3px]"
                                   />
@@ -147,7 +147,7 @@ export default async function SchedulePage() {
                               <div className="text-base sm:text-lg md:text-xl font-black text-center md:text-left whitespace-nowrap">
                                 {game.homeTeam}
                                 {index === day.games.length - 1 && (
-                                  <CircleCheck
+                                  <DoorClosedLocked
                                     size={18}
                                     className="inline-block ml-1 text-orange-500 align-[-3px]"
                                   />
@@ -200,10 +200,10 @@ export default async function SchedulePage() {
 
         <div className="text-sm md:text-base text-gray-500 font-bold px-1 mt-8">
           <span className="inline-flex items-center mr-4">
-            <Wrench size={18} className="mr-1 text-orange-500" /> 準備当番
+            <DoorOpen size={18} className="mr-1 text-orange-500" /> 準備当番
           </span>
           <span className="inline-flex items-center">
-            <CircleCheck size={18} className="mr-1 text-orange-500" />{" "}
+            <DoorClosedLocked size={18} className="mr-1 text-orange-500" />{" "}
             片付け当番
           </span>
         </div>

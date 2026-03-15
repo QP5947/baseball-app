@@ -8,8 +8,8 @@ import {
   Clock,
   ChevronRight,
   FileText,
-  Wrench,
-  CircleCheck,
+  DoorOpen,
+  DoorClosedLocked,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchPenpenScheduleEntries, toDisplayDate } from "./lib/penpenData";
@@ -179,7 +179,7 @@ export default async function HomePage() {
                         <div className="flex-1 text-center md:text-right w-full">
                           <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
                             {idx === 0 && (
-                              <Wrench
+                              <DoorOpen
                                 size={18}
                                 className="inline-block mr-1 text-orange-500 align-[-3px]"
                               />
@@ -227,7 +227,7 @@ export default async function HomePage() {
                           <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
                             {game.homeTeam}
                             {idx === previousEntry.games.length - 1 && (
-                              <CircleCheck
+                              <DoorClosedLocked
                                 size={18}
                                 className="inline-block ml-1 text-orange-500 align-[-3px]"
                               />
@@ -340,7 +340,7 @@ export default async function HomePage() {
                       <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-4">
                         <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-center md:text-left w-full md:w-auto">
                           {originalIndex === 0 && (
-                            <Wrench
+                            <DoorOpen
                               size={18}
                               className="inline-block mr-1 text-orange-500 align-[-3px]"
                             />
@@ -353,7 +353,7 @@ export default async function HomePage() {
                         <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-center md:text-right w-full md:w-auto">
                           {game.homeTeam}
                           {originalIndex === nextEntry.games.length - 1 && (
-                            <CircleCheck
+                            <DoorClosedLocked
                               size={18}
                               className="inline-block ml-1 text-orange-500 align-[-3px]"
                             />
@@ -398,10 +398,10 @@ export default async function HomePage() {
 
         <div className="text-sm md:text-base text-gray-500 font-bold px-1">
           <span className="inline-flex items-center mr-4">
-            <Wrench size={18} className="mr-1 text-orange-500" /> 準備当番
+            <DoorOpen size={18} className="mr-1 text-orange-500" /> 準備当番
           </span>
           <span className="inline-flex items-center">
-            <CircleCheck size={18} className="mr-1 text-orange-500" />{" "}
+            <DoorClosedLocked size={18} className="mr-1 text-orange-500" />{" "}
             片付け当番
           </span>
         </div>

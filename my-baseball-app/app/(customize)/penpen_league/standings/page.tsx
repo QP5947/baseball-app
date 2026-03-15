@@ -24,6 +24,8 @@ type TournamentImage = {
   imagePath: string;
 };
 
+const STANDINGS_LEAGUE_ID = "1b8cbac7-ab3f-4006-bcad-d4db00e7e65c";
+
 export default function StandingsPage() {
   useEffect(() => {
     document.title = "勝敗表 | ペンペンリーグ";
@@ -60,7 +62,13 @@ export default function StandingsPage() {
         ]);
 
         const enabledTeams = teamData.filter((item) => item.isEnabled);
-        setStandings(computeStandings(entries, enabledTeams));
+        const leagueEntries = entries.map((entry) => ({
+          ...entry,
+          games: entry.games.filter(
+            (game) => game.leagueId === STANDINGS_LEAGUE_ID,
+          ),
+        }));
+        setStandings(computeStandings(leagueEntries, enabledTeams));
 
         const leagueNameMap = new Map(
           (leagueRes.data ?? []).map((l) => [l.id, l.name]),

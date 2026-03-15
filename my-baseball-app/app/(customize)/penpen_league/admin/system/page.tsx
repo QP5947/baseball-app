@@ -6,10 +6,13 @@ import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   PENPEN_DEFAULT_HEADER_IMAGE,
-  removePenpenImageIfStored,
   resolvePenpenImageUrl,
-  uploadPenpenImage,
 } from "../../lib/penpenStorage";
+import {
+  penpenAdminMutate,
+  penpenAdminRemoveImage,
+  penpenAdminUploadImage,
+} from "../lib/adminApi";
 
 type SystemSettings = {
   title: string;
@@ -86,19 +89,25 @@ export default function PenpenAdminSystemPage() {
   const saveSettings = async (
     next: Pick<SystemSettings, "title" | "subtitle" | "headerImagePath">,
   ) => {
-    const { error } = await supabase
-      .schema("penpen")
-      .from("settings")
-      .upsert({
-        id: true,
-        site_title: next.title,
-        site_subtitle: next.subtitle,
-        header_image_url: next.headerImagePath || null,
-        admin_password_hash: savedPassword || null,
+    try {
+      await penpenAdminMutate({
+        action: "upsert",
+        table: "settings",
+        rows: [
+          {
+            id: true,
+            site_title: next.title,
+            site_subtitle: next.subtitle,
+            header_image_url: next.headerImagePath || null,
+            admin_password_hash: savedPassword || null,
+          },
+        ],
+        onConflict: "id",
       });
-
-    if (error) {
-      setSettingsMessage(`HP設定の保存に失敗しました: ${error.message}`);
+    } catch (error) {
+      setSettingsMessage(
+        `HP設定の保存に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+      );
       return false;
     }
 
@@ -114,11 +123,11 @@ export default function PenpenAdminSystemPage() {
 
     if (selectedHeaderImageFile) {
       try {
-        const uploaded = await uploadPenpenImage(
-          supabase,
+        const response = await penpenAdminUploadImage(
           selectedHeaderImageFile,
           "header-images",
         );
+        const uploaded = response.data;
         nextHeaderImagePath = uploaded.path;
         setHeaderImagePreviewUrl(
           uploaded.publicUrl || PENPEN_DEFAULT_HEADER_IMAGE,
@@ -143,7 +152,7 @@ export default function PenpenAdminSystemPage() {
     }
 
     if (previousHeaderImagePath !== nextHeaderImagePath) {
-      await removePenpenImageIfStored(supabase, previousHeaderImagePath);
+      await penpenAdminRemoveImage(previousHeaderImagePath);
     }
 
     setHeaderImagePath(nextHeaderImagePath);
@@ -185,19 +194,25 @@ export default function PenpenAdminSystemPage() {
       return;
     }
 
-    const { error } = await supabase
-      .schema("penpen")
-      .from("settings")
-      .upsert({
-        id: true,
-        site_title: title.trim(),
-        site_subtitle: subtitle.trim(),
-        header_image_url: headerImagePath || null,
-        admin_password_hash: newPassword,
+    try {
+      await penpenAdminMutate({
+        action: "upsert",
+        table: "settings",
+        rows: [
+          {
+            id: true,
+            site_title: title.trim(),
+            site_subtitle: subtitle.trim(),
+            header_image_url: headerImagePath || null,
+            admin_password_hash: newPassword,
+          },
+        ],
+        onConflict: "id",
       });
-
-    if (error) {
-      setPasswordMessage(`パスワード変更に失敗しました: ${error.message}`);
+    } catch (error) {
+      setPasswordMessage(
+        `パスワード変更に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+      );
       return;
     }
 

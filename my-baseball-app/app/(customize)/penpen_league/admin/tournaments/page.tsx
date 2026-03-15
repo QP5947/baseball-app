@@ -4,11 +4,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { resolvePenpenImageUrl } from "../../lib/penpenStorage";
 import {
-  removePenpenImageIfStored,
-  resolvePenpenImageUrl,
-  uploadPenpenImage,
-} from "../../lib/penpenStorage";
+  penpenAdminMutate,
+  penpenAdminRemoveImage,
+  penpenAdminUploadImage,
+} from "../lib/adminApi";
 
 type LeagueItem = {
   id: string;
@@ -110,7 +111,8 @@ export default function PenpenAdminTournamentsPage() {
 
   const uploadImageFile = async (file: File) => {
     try {
-      return await uploadPenpenImage(supabase, file, "tournaments");
+      const response = await penpenAdminUploadImage(file, "tournaments");
+      return response.data;
     } catch (error) {
       window.alert(
         `画像アップロードに失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
@@ -158,21 +160,40 @@ export default function PenpenAdminTournamentsPage() {
 
     if (!newLeagueId || !newImagePath) return;
 
-    const { data, error } = await supabase
-      .schema("penpen")
-      .from("tournaments")
-      .insert({
-        league_id: newLeagueId,
-        image_path: newImagePath,
-        image_file_name: newImageFileName || null,
-        sort_order: tournaments.length,
-      })
-      .select("id, league_id, image_path, image_file_name, sort_order")
-      .single();
+    type InsertedTournament = {
+      id: string;
+      league_id: string;
+      image_path: string;
+      image_file_name: string | null;
+      sort_order: number;
+    };
 
-    if (error || !data) {
+    let data: InsertedTournament;
+    try {
+      const response = await penpenAdminMutate<InsertedTournament>({
+        action: "insert",
+        table: "tournaments",
+        rows: [
+          {
+            league_id: newLeagueId,
+            image_path: newImagePath,
+            image_file_name: newImageFileName || null,
+            sort_order: tournaments.length,
+          },
+        ],
+        returning: [
+          "id",
+          "league_id",
+          "image_path",
+          "image_file_name",
+          "sort_order",
+        ],
+        single: true,
+      });
+      data = response.data;
+    } catch (error) {
       window.alert(
-        `トーナメント追加に失敗しました: ${error?.message ?? "unknown"}`,
+        `トーナメント追加に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
       );
       return;
     }
@@ -196,18 +217,21 @@ export default function PenpenAdminTournamentsPage() {
     if (!target) return;
     if (!target.leagueId || !target.imagePath) return;
 
-    const { error } = await supabase
-      .schema("penpen")
-      .from("tournaments")
-      .update({
-        league_id: target.leagueId,
-        image_path: target.imagePath,
-        image_file_name: target.imageFileName || null,
-      })
-      .eq("id", id);
-
-    if (error) {
-      window.alert(`トーナメント保存に失敗しました: ${error.message}`);
+    try {
+      await penpenAdminMutate({
+        action: "update",
+        table: "tournaments",
+        values: {
+          league_id: target.leagueId,
+          image_path: target.imagePath,
+          image_file_name: target.imageFileName || null,
+        },
+        match: [{ column: "id", value: id }],
+      });
+    } catch (error) {
+      window.alert(
+        `トーナメント保存に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+      );
       return;
     }
 
@@ -223,18 +247,20 @@ export default function PenpenAdminTournamentsPage() {
     );
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .schema("penpen")
-      .from("tournaments")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      window.alert(`トーナメント削除に失敗しました: ${error.message}`);
+    try {
+      await penpenAdminMutate({
+        action: "delete",
+        table: "tournaments",
+        match: [{ column: "id", value: id }],
+      });
+    } catch (error) {
+      window.alert(
+        `トーナメント削除に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+      );
       return;
     }
 
-    await removePenpenImageIfStored(supabase, target?.imagePath);
+    await penpenAdminRemoveImage(target?.imagePath);
 
     setTournaments((prev) => prev.filter((item) => item.id !== id));
     setDraftTournaments((prev) => prev.filter((item) => item.id !== id));

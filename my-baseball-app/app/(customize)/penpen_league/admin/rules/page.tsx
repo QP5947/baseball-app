@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { penpenAdminMutate } from "../lib/adminApi";
 
 type RuleBlock = {
   id: string;
@@ -106,20 +107,35 @@ export default function PenpenAdminRulesPage() {
     const body = newBody.trim();
     if (!title || !body) return;
 
-    const { data, error } = await supabase
-      .schema("penpen")
-      .from("rule_blocks")
-      .insert({
-        title,
-        body,
-        is_enabled: true,
-        sort_order: rules.length,
-      })
-      .select("id, title, body, is_enabled, sort_order")
-      .single();
+    type InsertedRule = {
+      id: string;
+      title: string;
+      body: string;
+      is_enabled: boolean;
+      sort_order: number;
+    };
 
-    if (error || !data) {
-      window.alert(`規定の追加に失敗しました: ${error?.message ?? "unknown"}`);
+    let data: InsertedRule;
+    try {
+      const response = await penpenAdminMutate<InsertedRule>({
+        action: "insert",
+        table: "rule_blocks",
+        rows: [
+          {
+            title,
+            body,
+            is_enabled: true,
+            sort_order: rules.length,
+          },
+        ],
+        returning: ["id", "title", "body", "is_enabled", "sort_order"],
+        single: true,
+      });
+      data = response.data;
+    } catch (error) {
+      window.alert(
+        `規定の追加に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+      );
       return;
     }
 
@@ -162,39 +178,40 @@ export default function PenpenAdminRulesPage() {
 
     setSavingRowId(id);
     try {
-      const { error } = await supabase
-        .schema("penpen")
-        .from("rule_blocks")
-        .update({
+      await penpenAdminMutate({
+        action: "update",
+        table: "rule_blocks",
+        values: {
           title,
           body,
           is_enabled: target.isEnabled,
-        })
-        .eq("id", id);
-
-      if (error) {
-        window.alert(`規定の保存に失敗しました: ${error.message}`);
-        return;
-      }
-
-      setRules((prev) =>
-        prev.map((item) =>
-          item.id === id
-            ? { ...item, title, body, isEnabled: target.isEnabled }
-            : item,
-        ),
+        },
+        match: [{ column: "id", value: id }],
+      });
+    } catch (error) {
+      window.alert(
+        `規定の保存に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
       );
-      setDraftRules((prev) =>
-        prev.map((item) =>
-          item.id === id
-            ? { ...item, title, body, isEnabled: target.isEnabled }
-            : item,
-        ),
-      );
-      markRowSaved(id);
+      return;
     } finally {
       setSavingRowId(null);
     }
+
+    setRules((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, title, body, isEnabled: target.isEnabled }
+          : item,
+      ),
+    );
+    setDraftRules((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, title, body, isEnabled: target.isEnabled }
+          : item,
+      ),
+    );
+    markRowSaved(id);
   };
 
   const deleteRule = async (id: string) => {
@@ -204,14 +221,16 @@ export default function PenpenAdminRulesPage() {
     );
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .schema("penpen")
-      .from("rule_blocks")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      window.alert(`規定の削除に失敗しました: ${error.message}`);
+    try {
+      await penpenAdminMutate({
+        action: "delete",
+        table: "rule_blocks",
+        match: [{ column: "id", value: id }],
+      });
+    } catch (error) {
+      window.alert(
+        `規定の削除に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+      );
       return;
     }
 
@@ -391,24 +410,25 @@ export default function PenpenAdminRulesPage() {
                         <span className="inline-flex items-center gap-1.5">
                           {savedRowIds.has(rule.id) ? (
                             <Check size={16} />
-                          ) : (
-                            "保存"
-                          )}
+                          ) : null}
+                          保存
                         </span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => void deleteRule(rule.id)}
-                        className="w-full md:w-auto bg-red-600 text-white font-black px-6 py-3 rounded-lg hover:bg-red-700 transition-colors cursor-pointer"
-                      >
-                        削除
-                      </button>
+
                       <button
                         type="button"
                         onClick={() => cancelRuleChanges(rule.id)}
                         className="w-full md:w-auto bg-gray-200 text-gray-800 font-black px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors cursor-pointer"
                       >
                         キャンセル
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void deleteRule(rule.id)}
+                        className="w-full md:w-auto bg-red-600 text-white font-black px-6 py-3 rounded-lg hover:bg-red-700 transition-colors cursor-pointer"
+                      >
+                        削除
                       </button>
                     </div>
                   </article>

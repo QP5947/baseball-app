@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, CircleCheck, MapPin, Wrench } from "lucide-react";
+import { Calendar, DoorClosedLocked, DoorOpen, MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -299,11 +299,14 @@ export default function PenpenAdminResultsPage() {
                   {entry.games.length > 0 && (
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-base font-bold text-gray-700">
                       <span className="inline-flex items-center gap-1">
-                        <Wrench size={18} className="text-orange-500" />
+                        <DoorOpen size={18} className="text-orange-500" />
                         準備当番: {entry.games[0].awayTeam}
                       </span>
                       <span className="inline-flex items-center gap-1">
-                        <CircleCheck size={18} className="text-orange-500" />
+                        <DoorClosedLocked
+                          size={18}
+                          className="text-orange-500"
+                        />
                         片付け当番:{" "}
                         {entry.games[entry.games.length - 1].homeTeam}
                       </span>
@@ -342,7 +345,7 @@ export default function PenpenAdminResultsPage() {
                                 </p>
                                 <span className="inline-flex items-center gap-1">
                                   {idx === 0 && (
-                                    <Wrench
+                                    <DoorOpen
                                       size={16}
                                       className="text-orange-500"
                                     />
@@ -386,7 +389,7 @@ export default function PenpenAdminResultsPage() {
                                 />
                                 <span className="inline-flex items-center gap-1">
                                   {idx === entry.games.length - 1 && (
-                                    <CircleCheck
+                                    <DoorClosedLocked
                                       size={16}
                                       className="text-orange-500"
                                     />

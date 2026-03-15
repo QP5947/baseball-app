@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Check, GripVertical, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { penpenAdminMutate } from "../lib/adminApi";
 import type { PenpenMaster } from "../../lib/penpenData";
 
 const reorderItems = (
@@ -108,13 +109,17 @@ export default function PenpenAdminTeamsPage() {
       sort_order: index,
     }));
 
-    const { error } = await supabase
-      .schema("penpen")
-      .from("teams")
-      .upsert(payload, { onConflict: "id" });
-
-    if (error) {
-      window.alert(`チームデータの保存に失敗しました: ${error.message}`);
+    try {
+      await penpenAdminMutate({
+        action: "upsert",
+        table: "teams",
+        rows: payload,
+        onConflict: "id",
+      });
+    } catch (error) {
+      window.alert(
+        `チームデータの保存に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+      );
       return false;
     }
 
@@ -130,30 +135,34 @@ export default function PenpenAdminTeamsPage() {
     const target = teams[index];
     setSavingRowId(teamId);
     try {
-      const { error } = await supabase.schema("penpen").from("teams").upsert(
-        {
-          id: target.id,
-          name: target.name.trim(),
-          is_enabled: target.isEnabled,
-          sort_order: index,
-        },
-        { onConflict: "id" },
-      );
-
-      if (error) {
-        window.alert(`チームデータの保存に失敗しました: ${error.message}`);
-        return;
-      }
-
-      setDirtyRowIds((prev) => {
-        const next = new Set(prev);
-        next.delete(teamId);
-        return next;
+      await penpenAdminMutate({
+        action: "upsert",
+        table: "teams",
+        rows: [
+          {
+            id: target.id,
+            name: target.name.trim(),
+            is_enabled: target.isEnabled,
+            sort_order: index,
+          },
+        ],
+        onConflict: "id",
       });
-      markRowSaved(teamId);
+    } catch (error) {
+      window.alert(
+        `チームデータの保存に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+      );
+      return;
     } finally {
       setSavingRowId(null);
     }
+
+    setDirtyRowIds((prev) => {
+      const next = new Set(prev);
+      next.delete(teamId);
+      return next;
+    });
+    markRowSaved(teamId);
   };
 
   const updateName = (id: string, value: string) => {
@@ -196,35 +205,46 @@ export default function PenpenAdminTeamsPage() {
     const trimmedName = newTeamName.trim();
     if (!trimmedName) return;
 
-    const { data, error } = await supabase
-      .schema("penpen")
-      .from("teams")
-      .insert({
-        name: trimmedName,
-        is_enabled: newTeamEnabled,
-        sort_order: teams.length,
-      })
-      .select("id, name, is_enabled, sort_order")
-      .single();
+    type InsertedTeam = {
+      id: string;
+      name: string;
+      is_enabled: boolean;
+      sort_order: number;
+    };
 
-    if (error || !data) {
+    try {
+      const response = await penpenAdminMutate<InsertedTeam>({
+        action: "insert",
+        table: "teams",
+        rows: [
+          {
+            name: trimmedName,
+            is_enabled: newTeamEnabled,
+            sort_order: teams.length,
+          },
+        ],
+        returning: ["id", "name", "is_enabled", "sort_order"],
+        single: true,
+      });
+
+      const data = response.data;
+
+      setTeams((prev) => [
+        ...prev,
+        {
+          id: data.id,
+          name: data.name,
+          isEnabled: data.is_enabled,
+          sortOrder: data.sort_order,
+        },
+      ]);
+      setNewTeamName("");
+      setNewTeamEnabled(true);
+    } catch (error) {
       window.alert(
-        `チームの追加に失敗しました: ${error?.message ?? "unknown"}`,
+        `チームの追加に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
       );
-      return;
     }
-
-    setTeams((prev) => [
-      ...prev,
-      {
-        id: data.id,
-        name: data.name,
-        isEnabled: data.is_enabled,
-        sortOrder: data.sort_order,
-      },
-    ]);
-    setNewTeamName("");
-    setNewTeamEnabled(true);
   };
 
   const deleteTeam = async (id: string) => {
@@ -234,14 +254,16 @@ export default function PenpenAdminTeamsPage() {
     );
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .schema("penpen")
-      .from("teams")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      window.alert(`チームの削除に失敗しました: ${error.message}`);
+    try {
+      await penpenAdminMutate({
+        action: "delete",
+        table: "teams",
+        match: [{ column: "id", value: id }],
+      });
+    } catch (error) {
+      window.alert(
+        `チームの削除に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+      );
       return;
     }
 
