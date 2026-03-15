@@ -64,6 +64,10 @@ export default async function HomePage() {
         .filter(({ game }) => isPendingGame(game))
     : [];
 
+  const previousEntryRestTeams = (previousEntry?.restTeams ?? []).filter(
+    (team) => team.trim().length > 0,
+  );
+
   const nextEntryRestTeams = (nextEntry?.restTeams ?? []).filter(
     (team) => team.trim().length > 0,
   );
@@ -234,6 +238,20 @@ export default async function HomePage() {
                     </div>
                   ))}
                 </div>
+                {previousEntryRestTeams.length > 0 && (
+                  <div className="p-6 border-t-2 border-gray-100">
+                    <div className="text-gray-700">
+                      <div>
+                        <div className="font-bold text-gray-500 mb-1">
+                          休みチーム
+                        </div>
+                        <p className="text-base whitespace-pre-wrap">
+                          {previousEntryRestTeams.join(" / ")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {previousEntry.resultNote && (
                   <div className="p-6 border-t-2 border-gray-100">
                     <div className="text-gray-700">
