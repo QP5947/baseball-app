@@ -99,6 +99,9 @@ export default function StandingsPage() {
   const getWinRate = (team: TeamStanding) =>
     team.w + team.l > 0 ? team.w / (team.w + team.l) : 0;
 
+  const formatWinRate = (winRate: number) =>
+    winRate.toFixed(3).replace(/^0(?=\.)/, "");
+
   const isSameRank = (a: TeamStanding, b: TeamStanding) => {
     if (a.pts !== b.pts) {
       return false;
@@ -302,7 +305,7 @@ export default function StandingsPage() {
                             {team.d}
                           </td>
                           <td className="p-3 border border-slate-100 text-center text-slate-500 font-mono">
-                            {winRate.toFixed(3).substring(1)}
+                            {formatWinRate(winRate)}
                           </td>
                           <td className="p-3 border border-slate-100 text-center bg-amber-50 text-amber-700 text-xl font-black">
                             {team.pts}
