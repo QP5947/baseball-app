@@ -11,10 +11,16 @@ import {
   DoorClosedLocked,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { fetchPenpenScheduleEntries, toDisplayDate } from "../lib/penpenData";
+import {
+  fetchPenpenMasters,
+  fetchPenpenScheduleEntries,
+  toDisplayDate,
+} from "../lib/penpenData";
 import { fetchPenpenHeaderImageUrl } from "../lib/penpenStorage";
 
 export const metadata: Metadata = { title: "日程表" };
+
+const DEFAULT_LEAGUE_ID = "1b8cbac7-ab3f-4006-bcad-d4db00e7e65c";
 
 const getScoreTone = (awayScore: number, homeScore: number) => {
   if (awayScore > homeScore) {
@@ -30,10 +36,14 @@ const getScoreTone = (awayScore: number, homeScore: number) => {
 
 export default async function SchedulePage() {
   const supabase = await createClient();
-  const [schedules, headerImageUrl] = await Promise.all([
+  const [schedules, headerImageUrl, masterData] = await Promise.all([
     fetchPenpenScheduleEntries(supabase),
     fetchPenpenHeaderImageUrl(supabase),
+    fetchPenpenMasters(supabase),
   ]);
+  const leagueNameById = new Map(
+    masterData.leagues.map((league) => [league.id, league.name]),
+  );
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -99,9 +109,17 @@ export default async function SchedulePage() {
                           <div className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-black whitespace-nowrap">
                             第{index + 1}試合
                           </div>
-                          <div className="flex items-center gap-2 text-blue-600 font-bold text-xl whitespace-nowrap">
-                            <Clock size={20} />
-                            {game.startTime}〜
+                          <div className="flex flex-col items-start gap-1 text-blue-600 font-bold text-xl whitespace-nowrap">
+                            <span className="inline-flex items-center gap-2">
+                              <Clock size={20} />
+                              {game.startTime}〜
+                            </span>
+                            {game.leagueId &&
+                            game.leagueId !== DEFAULT_LEAGUE_ID ? (
+                              <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg font-bold text-sm whitespace-nowrap">
+                                {leagueNameById.get(game.leagueId) ?? "-"}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
 

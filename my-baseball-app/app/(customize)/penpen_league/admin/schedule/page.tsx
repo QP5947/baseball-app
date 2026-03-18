@@ -394,13 +394,7 @@ export default function PenpenAdminSchedulePage() {
       const awayTeamId = toPersistTeamId(game.awayTeamId, undecidedTeamId);
       const homeTeamId = toPersistTeamId(game.homeTeamId, undecidedTeamId);
 
-      return (
-        game.startTime &&
-        game.endTime &&
-        awayTeamId &&
-        homeTeamId &&
-        awayTeamId !== homeTeamId
-      );
+      return game.startTime && game.endTime && awayTeamId && homeTeamId;
     });
 
     try {
