@@ -6,7 +6,7 @@ import Link from "next/link";
 
 export default function PenpenAdminLoginPage() {
   useEffect(() => {
-    document.title = "ログイン | ペンペンリーグ";
+    document.title = "管理画面ログイン | ペンペンリーグ";
   }, []);
 
   const router = useRouter();

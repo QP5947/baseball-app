@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchPenpenScheduleEntries, toDisplayDate } from "../lib/penpenData";
 import { fetchPenpenHeaderImageUrl } from "../lib/penpenStorage";
 
-export const metadata: Metadata = { title: "日程表 | ペンペンリーグ" };
+export const metadata: Metadata = { title: "日程表" };
 
 const getScoreTone = (awayScore: number, homeScore: number) => {
   if (awayScore > homeScore) {

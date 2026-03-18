@@ -40,7 +40,7 @@ const menuItems = [
   },
 ];
 
-export const metadata: Metadata = { title: "管理画面 | ペンペンリーグ" };
+export const metadata: Metadata = { title: "管理画面" };
 
 export default function PenpenAdminHomePage() {
   return (

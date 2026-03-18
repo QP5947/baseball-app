@@ -5,7 +5,7 @@ import { ArrowLeft, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchPenpenHeaderImageUrl } from "../lib/penpenStorage";
 
-export const metadata: Metadata = { title: "大会規定 | ペンペンリーグ" };
+export const metadata: Metadata = { title: "大会規定" };
 
 export default async function RulesPage() {
   const supabase = await createClient();
