@@ -16,6 +16,18 @@ import { fetchPenpenHeaderImageUrl } from "../lib/penpenStorage";
 
 export const metadata: Metadata = { title: "日程表 | ペンペンリーグ" };
 
+const getScoreTone = (awayScore: number, homeScore: number) => {
+  if (awayScore > homeScore) {
+    return { away: "text-blue-700", home: "text-slate-400" };
+  }
+
+  if (awayScore < homeScore) {
+    return { away: "text-slate-400", home: "text-blue-700" };
+  }
+
+  return { away: "text-gray-500", home: "text-gray-500" };
+};
+
 export default async function SchedulePage() {
   const supabase = await createClient();
   const [schedules, headerImageUrl] = await Promise.all([
@@ -132,8 +144,24 @@ export default async function SchedulePage() {
                               </div>
                             ) : game.awayScore !== null &&
                               game.homeScore !== null ? (
-                              <div className="text-base sm:text-lg md:text-xl font-black text-zinc-800 bg-zinc-50 px-3 py-1 rounded-xl border border-zinc-200 whitespace-nowrap">
-                                {game.awayScore} - {game.homeScore}
+                              <div className="text-base sm:text-lg md:text-xl font-black bg-zinc-50 px-3 py-1 rounded-xl border border-zinc-200 whitespace-nowrap">
+                                <span
+                                  className={
+                                    getScoreTone(game.awayScore, game.homeScore)
+                                      .away
+                                  }
+                                >
+                                  {game.awayScore}
+                                </span>
+                                <span className="text-zinc-800"> - </span>
+                                <span
+                                  className={
+                                    getScoreTone(game.awayScore, game.homeScore)
+                                      .home
+                                  }
+                                >
+                                  {game.homeScore}
+                                </span>
                               </div>
                             ) : (
                               <div className="text-gray-300 font-black italic text-base sm:text-lg px-2 whitespace-nowrap">

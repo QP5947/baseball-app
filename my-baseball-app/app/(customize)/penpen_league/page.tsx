@@ -35,6 +35,34 @@ const isPendingGame = (game: PenpenGame) =>
   game.forfeitWinner === null &&
   (game.awayScore === null || game.homeScore === null);
 
+const getPreviousResultTone = (game: PenpenGame) => {
+  if (game.isCanceled) {
+    return { away: "text-gray-500", home: "text-gray-500" };
+  }
+
+  if (game.forfeitWinner === "away") {
+    return { away: "text-blue-700", home: "text-slate-400" };
+  }
+
+  if (game.forfeitWinner === "home") {
+    return { away: "text-slate-400", home: "text-blue-700" };
+  }
+
+  if (game.awayScore !== null && game.homeScore !== null) {
+    if (game.awayScore > game.homeScore) {
+      return { away: "text-blue-700", home: "text-slate-400" };
+    }
+
+    if (game.awayScore < game.homeScore) {
+      return { away: "text-slate-400", home: "text-blue-700" };
+    }
+
+    return { away: "text-gray-500", home: "text-gray-500" };
+  }
+
+  return { away: "text-gray-800", home: "text-gray-800" };
+};
+
 export const metadata: Metadata = { title: "ペンペンリーグ" };
 
 export default async function HomePage() {
@@ -170,73 +198,81 @@ export default async function HomePage() {
             ) : (
               <>
                 <div className="divide-y-2 divide-gray-100">
-                  {previousEntry.games.map((game, idx) => (
-                    <div key={game.id} className="p-6 md:p-8">
-                      <div className="text-gray-500 font-bold text-lg mb-3">
-                        第{idx + 1}試合
-                      </div>
-                      <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-3">
-                        <div className="flex-1 text-left md:text-right w-full">
-                          <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
-                            {idx === 0 && (
-                              <DoorOpen
-                                size={18}
-                                className="inline-block mr-1 text-orange-500 align-[-3px]"
-                              />
-                            )}
-                            {game.awayTeam}
-                          </div>
+                  {previousEntry.games.map((game, idx) => {
+                    const resultTone = getPreviousResultTone(game);
+
+                    return (
+                      <div key={game.id} className="p-6 md:p-8">
+                        <div className="text-gray-500 font-bold text-lg mb-3">
+                          第{idx + 1}試合
                         </div>
-                        <div className="flex items-center justify-center space-x-3 shrink-0 px-2">
-                          {game.forfeitWinner !== null ? (
-                            <div className="flex flex-col sm:flex-row items-center gap-1">
-                              <span
-                                className={`text-sm font-bold px-2 py-0.5 rounded-full ${game.forfeitWinner === "away" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}
-                              >
-                                {game.forfeitWinner === "away"
-                                  ? "不戦勝"
-                                  : "不戦敗"}
-                              </span>
-                              <span
-                                className={`text-sm font-bold px-2 py-0.5 rounded-full ${game.forfeitWinner === "home" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}
-                              >
-                                {game.forfeitWinner === "home"
-                                  ? "不戦勝"
-                                  : "不戦敗"}
-                              </span>
+                        <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-3">
+                          <div className="flex-1 text-left md:text-right w-full">
+                            <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
+                              {idx === 0 && (
+                                <DoorOpen
+                                  size={18}
+                                  className="inline-block mr-1 text-orange-500 align-[-3px]"
+                                />
+                              )}
+                              {game.awayTeam}
                             </div>
-                          ) : game.isCanceled ? (
-                            <span className="text-base font-black text-red-600">
-                              中止
-                            </span>
-                          ) : (
-                            <>
-                              <span className="text-2xl sm:text-3xl md:text-4xl font-black text-blue-700">
-                                {game.awayScore ?? "-"}
+                          </div>
+                          <div className="flex items-center justify-center space-x-3 shrink-0 px-2">
+                            {game.forfeitWinner !== null ? (
+                              <div className="flex flex-col sm:flex-row items-center gap-1">
+                                <span
+                                  className={`text-sm font-bold px-2 py-0.5 rounded-full ${game.forfeitWinner === "away" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}
+                                >
+                                  {game.forfeitWinner === "away"
+                                    ? "不戦勝"
+                                    : "不戦敗"}
+                                </span>
+                                <span
+                                  className={`text-sm font-bold px-2 py-0.5 rounded-full ${game.forfeitWinner === "home" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}
+                                >
+                                  {game.forfeitWinner === "home"
+                                    ? "不戦勝"
+                                    : "不戦敗"}
+                                </span>
+                              </div>
+                            ) : game.isCanceled ? (
+                              <span className="text-base font-black text-red-600">
+                                中止
                               </span>
-                              <span className="text-lg sm:text-xl text-gray-800">
-                                -
-                              </span>
-                              <span className="text-2xl sm:text-3xl md:text-4xl font-black text-gray-800">
-                                {game.homeScore ?? "-"}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                        <div className="flex-1 text-right md:text-left w-full">
-                          <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
-                            {game.homeTeam}
-                            {idx === previousEntry.games.length - 1 && (
-                              <DoorClosedLocked
-                                size={18}
-                                className="inline-block ml-1 text-orange-500 align-[-3px]"
-                              />
+                            ) : (
+                              <>
+                                <span
+                                  className={`text-2xl sm:text-3xl md:text-4xl font-black ${resultTone.away}`}
+                                >
+                                  {game.awayScore ?? "-"}
+                                </span>
+                                <span className="text-lg sm:text-xl text-gray-800">
+                                  -
+                                </span>
+                                <span
+                                  className={`text-2xl sm:text-3xl md:text-4xl font-black ${resultTone.home}`}
+                                >
+                                  {game.homeScore ?? "-"}
+                                </span>
+                              </>
                             )}
+                          </div>
+                          <div className="flex-1 text-right md:text-left w-full">
+                            <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap">
+                              {game.homeTeam}
+                              {idx === previousEntry.games.length - 1 && (
+                                <DoorClosedLocked
+                                  size={18}
+                                  className="inline-block ml-1 text-orange-500 align-[-3px]"
+                                />
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {previousEntryRestTeams.length > 0 && (
                   <div className="p-6 border-t-2 border-gray-100">
