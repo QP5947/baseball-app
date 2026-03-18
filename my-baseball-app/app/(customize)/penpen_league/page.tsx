@@ -12,8 +12,14 @@ import {
   DoorClosedLocked,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { fetchPenpenScheduleEntries, toDisplayDate } from "./lib/penpenData";
+import {
+  fetchPenpenMasters,
+  fetchPenpenScheduleEntries,
+  toDisplayDate,
+} from "./lib/penpenData";
 import { fetchPenpenHeaderImageUrl } from "./lib/penpenStorage";
+
+const DEFAULT_LEAGUE_ID = "1b8cbac7-ab3f-4006-bcad-d4db00e7e65c";
 
 type PenpenGame = {
   awayScore: number | null;
@@ -69,10 +75,14 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const supabase = await createClient();
-  const [entries, headerImageUrl] = await Promise.all([
+  const [entries, headerImageUrl, masters] = await Promise.all([
     fetchPenpenScheduleEntries(supabase),
     fetchPenpenHeaderImageUrl(supabase),
+    fetchPenpenMasters(supabase),
   ]);
+  const leagueNameById = new Map(
+    masters.leagues.map((league) => [league.id, league.name]),
+  );
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -205,8 +215,20 @@ export default async function HomePage() {
 
                     return (
                       <div key={game.id} className="p-6 md:p-8">
-                        <div className="text-gray-500 font-bold text-lg mb-3">
-                          第{idx + 1}試合
+                        <div className="mb-3 space-y-1">
+                          <div className="text-gray-500 font-bold text-lg">
+                            第{idx + 1}試合
+                          </div>
+                          <div className="flex items-center gap-2 text-blue-600 text-base font-bold">
+                            <Clock size={18} />
+                            {game.startTime}〜{game.endTime}
+                          </div>
+                          {game.leagueId &&
+                          game.leagueId !== DEFAULT_LEAGUE_ID ? (
+                            <span className="rounded-lg bg-blue-50 px-2 py-1 text-sm font-bold text-blue-700">
+                              {leagueNameById.get(game.leagueId) ?? "-"}
+                            </span>
+                          ) : null}
                         </div>
                         <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-3">
                           <div className="flex-1 text-left md:text-right w-full">
@@ -371,9 +393,17 @@ export default async function HomePage() {
                       key={game.id}
                       className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100"
                     >
-                      <div className="flex items-center gap-2 text-blue-600 font-bold mb-2 text-lg">
-                        <Clock size={20} /> {game.startTime}〜 (第
-                        {originalIndex + 1}試合)
+                      <div className="mb-2 space-y-1 text-blue-600 font-bold text-lg">
+                        <div className="flex items-center gap-2">
+                          <Clock size={20} /> {game.startTime}〜 (第
+                          {originalIndex + 1}試合)
+                        </div>
+                        {game.leagueId &&
+                        game.leagueId !== DEFAULT_LEAGUE_ID ? (
+                          <span className="rounded-lg bg-blue-50 px-2 py-1 text-sm font-bold text-blue-700">
+                            {leagueNameById.get(game.leagueId) ?? "-"}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-4">
                         <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-left md:text-left w-full md:w-auto">

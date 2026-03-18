@@ -4,9 +4,12 @@ import { Calendar, DoorClosedLocked, DoorOpen, MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
+  fetchPenpenMasters,
   fetchPenpenScheduleEntries,
   type PenpenScheduleEntry,
 } from "../../lib/penpenData";
+
+const DEFAULT_LEAGUE_ID = "1b8cbac7-ab3f-4006-bcad-d4db00e7e65c";
 
 type GameResult = {
   awayScore: string;
@@ -23,12 +26,23 @@ export default function OneDayResultForm() {
   );
   const [resultMap, setResultMap] = useState<Record<string, GameResult>>({});
   const [entryNoteMap, setEntryNoteMap] = useState<Record<string, string>>({});
+  const [leagueNameById, setLeagueNameById] = useState<Record<string, string>>(
+    {},
+  );
 
   useEffect(() => {
     const load = async () => {
       try {
-        const entries = await fetchPenpenScheduleEntries(supabase);
+        const [entries, masters] = await Promise.all([
+          fetchPenpenScheduleEntries(supabase),
+          fetchPenpenMasters(supabase),
+        ]);
         setScheduleEntries(entries);
+        setLeagueNameById(
+          Object.fromEntries(
+            masters.leagues.map((league) => [league.id, league.name]),
+          ),
+        );
 
         const nextResults: Record<string, GameResult> = {};
         const nextEntryNotes: Record<string, string> = {};
@@ -284,9 +298,17 @@ export default function OneDayResultForm() {
                   >
                     <div className="md:overflow-x-auto">
                       <div className="space-y-3 text-base font-bold text-gray-800 md:inline-flex md:min-w-max md:items-center md:gap-4 md:space-y-0 md:whitespace-nowrap">
-                        <p>
-                          {game.startTime}〜{game.endTime}
-                        </p>
+                        <div className="flex flex-col items-start gap-1">
+                          <p>
+                            {game.startTime}〜{game.endTime}
+                          </p>
+                          {game.leagueId &&
+                          game.leagueId !== DEFAULT_LEAGUE_ID ? (
+                            <span className="inline-flex items-center rounded-lg bg-blue-50 px-2 py-1 text-sm font-bold text-blue-700">
+                              {leagueNameById[game.leagueId] ?? "-"}
+                            </span>
+                          ) : null}
+                        </div>
                         <div className="flex flex-col items-start gap-2 md:flex-row md:items-center md:gap-4">
                           <span className="inline-flex items-center gap-1">
                             {idx === 0 && (
