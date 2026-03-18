@@ -5,7 +5,7 @@ import { ArrowLeft, MapPin, ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchPenpenHeaderImageUrl } from "../lib/penpenStorage";
 
-export const metadata: Metadata = { title: "球場案内 | ペンペンリーグ" };
+export const metadata: Metadata = { title: "球場案内" };
 
 export default async function StadiumsPage() {
   const supabase = await createClient();

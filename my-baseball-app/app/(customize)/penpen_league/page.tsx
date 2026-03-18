@@ -63,7 +63,9 @@ const getPreviousResultTone = (game: PenpenGame) => {
   return { away: "text-gray-800", home: "text-gray-800" };
 };
 
-export const metadata: Metadata = { title: "ペンペンリーグ" };
+export const metadata: Metadata = {
+  title: { absolute: "ペンペンリーグ" },
+};
 
 export default async function HomePage() {
   const supabase = await createClient();
