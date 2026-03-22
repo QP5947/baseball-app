@@ -9,15 +9,27 @@ type MatchCondition = {
   column: string;
   value: Primitive;
 };
+type OrderCondition = {
+  column: string;
+  ascending: boolean;
+};
 
 type MutateBody = {
-  action: "insert" | "upsert" | "update" | "delete" | "ensureUndecidedTeam";
+  action:
+    | "insert"
+    | "upsert"
+    | "update"
+    | "delete"
+    | "ensureUndecidedTeam"
+    | "select";
   table?: string;
   rows?: Record<string, Primitive>[];
   values?: Record<string, Primitive>;
   onConflict?: string;
   match?: MatchCondition[];
   returning?: string[];
+  columns?: string[];
+  orderBy?: OrderCondition[];
   single?: boolean;
 };
 
@@ -27,6 +39,7 @@ const ALLOWED_TABLES = new Set([
   "stadiums",
   "rule_blocks",
   "tournaments",
+  "tournament_bindings",
   "settings",
   "schedule_days",
   "scheduled_games",
@@ -154,6 +167,82 @@ const parseReturning = (value: unknown) => {
   return columns;
 };
 
+const parseColumns = (value: unknown) => {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+
+  const columns = value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  if (columns.length !== value.length) {
+    return null;
+  }
+
+  if (columns.some((column) => !isValidColumnName(column))) {
+    return null;
+  }
+
+  return columns;
+};
+
+const parseOrderBy = (value: unknown): OrderCondition[] | null => {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const parsed = value.map((item) => {
+    if (!isRecord(item)) {
+      return null;
+    }
+
+    const column = typeof item.column === "string" ? item.column.trim() : "";
+    if (!column || !isValidColumnName(column)) {
+      return null;
+    }
+
+    const ascending = item.ascending === false ? false : true;
+    return { column, ascending };
+  });
+
+  if (parsed.some((item) => item === null)) {
+    return null;
+  }
+
+  return parsed.filter((item): item is OrderCondition => item !== null);
+};
+
+const parseOnConflict = (value: unknown) => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const columns = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  if (columns.length === 0) {
+    return null;
+  }
+
+  if (columns.some((column) => !isValidColumnName(column))) {
+    return null;
+  }
+
+  return columns.join(",");
+};
+
 const parseBody = (value: unknown): MutateBody | null => {
   if (!isRecord(value)) {
     return null;
@@ -164,7 +253,8 @@ const parseBody = (value: unknown): MutateBody | null => {
     value.action === "upsert" ||
     value.action === "update" ||
     value.action === "delete" ||
-    value.action === "ensureUndecidedTeam"
+    value.action === "ensureUndecidedTeam" ||
+    value.action === "select"
       ? value.action
       : null;
 
@@ -188,18 +278,32 @@ const parseBody = (value: unknown): MutateBody | null => {
 
   const single = value.single === true;
 
+  if (action === "select") {
+    const columns = parseColumns(value.columns);
+    const match = parseMatch(value.match) ?? [];
+    const orderBy = parseOrderBy(value.orderBy);
+    if (!columns || orderBy === null) {
+      return null;
+    }
+
+    return {
+      action,
+      table,
+      columns,
+      match,
+      orderBy,
+      single,
+    };
+  }
+
   if (action === "insert" || action === "upsert") {
     const rows = parseRows(value.rows);
     if (!rows) {
       return null;
     }
 
-    const onConflict =
-      typeof value.onConflict === "string" && value.onConflict.trim().length > 0
-        ? value.onConflict.trim()
-        : undefined;
-
-    if (onConflict && !isValidColumnName(onConflict)) {
+    const onConflict = parseOnConflict(value.onConflict);
+    if (onConflict === null) {
       return null;
     }
 
@@ -260,6 +364,15 @@ const maybeSelect = (query: any, returning: string[]) => {
   }
 
   return query.select(returning.join(","));
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const applyOrderBy = (query: any, orderBy: OrderCondition[]) => {
+  let next = query;
+  for (const order of orderBy) {
+    next = next.order(order.column, { ascending: order.ascending });
+  }
+  return next;
 };
 
 const ensureUndecidedTeam = async () => {
@@ -347,6 +460,21 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient();
     const table = supabase.schema("penpen").from(body.table);
+
+    if (body.action === "select") {
+      const selecting = table.select((body.columns ?? []).join(","));
+      const withMatch = applyMatch(selecting, body.match ?? []);
+      const withOrder = applyOrderBy(withMatch, body.orderBy ?? []);
+      const { data, error } = body.single
+        ? await withOrder.single()
+        : await withOrder;
+
+      if (error) {
+        throw error;
+      }
+
+      return NextResponse.json({ ok: true, data: data ?? null });
+    }
 
     if (body.action === "insert") {
       const inserting = table.insert(body.rows);

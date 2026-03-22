@@ -53,29 +53,37 @@ export default function PenpenAdminSystemPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data, error } = await supabase
-        .schema("penpen")
-        .from("settings")
-        .select("site_title, site_subtitle, header_image_url")
-        .eq("id", true)
-        .single();
+      try {
+        const response = await penpenAdminMutate<{
+          site_title: string | null;
+          site_subtitle: string | null;
+          header_image_url: string | null;
+        }>({
+          action: "select",
+          table: "settings",
+          columns: ["site_title", "site_subtitle", "header_image_url"],
+          match: [{ column: "id", value: true }],
+          single: true,
+        });
 
-      if (error) {
-        setSettingsMessage(`設定読み込みに失敗しました: ${error.message}`);
+        const data = response.data;
+        setTitle(data?.site_title ?? defaultSettings.title);
+        setSubtitle(data?.site_subtitle ?? defaultSettings.subtitle);
+        const loadedPath = data?.header_image_url ?? "";
+        setHeaderImagePath(loadedPath);
+        setHeaderImagePreviewUrl(
+          resolvePenpenImageUrl(
+            supabase,
+            loadedPath,
+            PENPEN_DEFAULT_HEADER_IMAGE,
+          ),
+        );
+      } catch (error) {
+        setSettingsMessage(
+          `設定読み込みに失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+        );
         return;
       }
-
-      setTitle(data.site_title ?? defaultSettings.title);
-      setSubtitle(data.site_subtitle ?? defaultSettings.subtitle);
-      const loadedPath = data.header_image_url ?? "";
-      setHeaderImagePath(loadedPath);
-      setHeaderImagePreviewUrl(
-        resolvePenpenImageUrl(
-          supabase,
-          loadedPath,
-          PENPEN_DEFAULT_HEADER_IMAGE,
-        ),
-      );
     };
 
     void load();

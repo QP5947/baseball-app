@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Check, GripVertical, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { penpenAdminMutate } from "../lib/adminApi";
 import type { PenpenStadium } from "../../lib/penpenData";
 
@@ -28,8 +27,6 @@ export default function PenpenAdminGroundsPage() {
   useEffect(() => {
     document.title = "球場管理 | ペンペンリーグ";
   }, []);
-
-  const supabase = createClient();
 
   const [grounds, setGrounds] = useState<PenpenStadium[]>([]);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -69,35 +66,55 @@ export default function PenpenAdminGroundsPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data, error } = await supabase
-        .schema("penpen")
-        .from("stadiums")
-        .select(
-          "id, name, address, google_map_url, note, is_enabled, sort_order",
-        )
-        .order("sort_order", { ascending: true });
+      try {
+        const response = await penpenAdminMutate<
+          {
+            id: string;
+            name: string;
+            address: string | null;
+            google_map_url: string | null;
+            note: string | null;
+            is_enabled: boolean;
+            sort_order: number;
+          }[]
+        >({
+          action: "select",
+          table: "stadiums",
+          columns: [
+            "id",
+            "name",
+            "address",
+            "google_map_url",
+            "note",
+            "is_enabled",
+            "sort_order",
+          ],
+          orderBy: [{ column: "sort_order", ascending: true }],
+        });
 
-      if (error) {
-        window.alert(`球場データの取得に失敗しました: ${error.message}`);
+        const data = response.data ?? [];
+        setGrounds(
+          data.map((item) => ({
+            id: item.id,
+            name: item.name,
+            address: item.address ?? "",
+            googleMapUrl: item.google_map_url ?? "",
+            note: item.note ?? "",
+            isEnabled: item.is_enabled,
+            sortOrder: item.sort_order,
+          })),
+        );
+        setDirtyRowIds(new Set());
+      } catch (error) {
+        window.alert(
+          `球場データの取得に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+        );
         return;
       }
-
-      setGrounds(
-        (data ?? []).map((item) => ({
-          id: item.id,
-          name: item.name,
-          address: item.address ?? "",
-          googleMapUrl: item.google_map_url ?? "",
-          note: item.note ?? "",
-          isEnabled: item.is_enabled,
-          sortOrder: item.sort_order,
-        })),
-      );
-      setDirtyRowIds(new Set());
     };
 
     void load();
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     return () => {

@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { Calendar, DoorClosedLocked, DoorOpen, MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import {
-  fetchPenpenMasters,
-  fetchPenpenScheduleEntries,
   getPeriodFromDate,
   type PenpenScheduleEntry,
 } from "../../lib/penpenData";
@@ -33,8 +30,6 @@ export default function PenpenAdminResultsPage() {
     document.title = "試合結果入力 | ペンペンリーグ";
   }, []);
 
-  const supabase = createClient();
-
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("spring");
   const [scheduleEntries, setScheduleEntries] = useState<PenpenScheduleEntry[]>(
     [],
@@ -48,15 +43,29 @@ export default function PenpenAdminResultsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [entries, masters] = await Promise.all([
-          fetchPenpenScheduleEntries(supabase),
-          fetchPenpenMasters(supabase),
-        ]);
+        const response = await fetch("/penpen_league/admin/api/dashboard", {
+          method: "GET",
+          credentials: "same-origin",
+        });
+
+        const payload = (await response.json().catch(() => null)) as {
+          message?: string;
+          entries?: PenpenScheduleEntry[];
+          masters?: {
+            leagues: { id: string; name: string }[];
+          };
+        } | null;
+
+        if (!response.ok) {
+          throw new Error(payload?.message ?? "unknown");
+        }
+
+        const entries = payload?.entries ?? [];
+        const leagues = payload?.masters?.leagues ?? [];
+
         setScheduleEntries(entries);
         setLeagueNameById(
-          Object.fromEntries(
-            masters.leagues.map((league) => [league.id, league.name]),
-          ),
+          Object.fromEntries(leagues.map((league) => [league.id, league.name])),
         );
 
         const nextResults: Record<string, GameResult> = {};
@@ -84,7 +93,7 @@ export default function PenpenAdminResultsPage() {
     };
 
     void load();
-  }, [supabase]);
+  }, []);
 
   const filteredEntries = useMemo(() => {
     return scheduleEntries

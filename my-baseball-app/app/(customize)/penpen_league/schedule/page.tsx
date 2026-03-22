@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   fetchPenpenMasters,
   fetchPenpenScheduleEntries,
+  type PenpenScheduleEntry,
   toDisplayDate,
 } from "../lib/penpenData";
 import { fetchPenpenHeaderImageUrl } from "../lib/penpenStorage";
@@ -21,6 +22,130 @@ import { fetchPenpenHeaderImageUrl } from "../lib/penpenStorage";
 export const metadata: Metadata = { title: "日程表" };
 
 const DEFAULT_LEAGUE_ID = "1b8cbac7-ab3f-4006-bcad-d4db00e7e65c";
+const UNDECIDED_TEAM_NAME = "未定";
+
+type TournamentBindingRow = {
+  league_id: string;
+  season_year: number;
+  third_place_code: string | null;
+  bindings: unknown;
+};
+
+type GameBinding = {
+  gameId: string;
+  code: string;
+  awaySourceCode: string;
+  homeSourceCode: string;
+};
+
+const toGameBinding = (value: unknown): GameBinding | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const row = value as Record<string, unknown>;
+  if (
+    typeof row.gameId !== "string" ||
+    typeof row.code !== "string" ||
+    typeof row.awaySourceCode !== "string" ||
+    typeof row.homeSourceCode !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    gameId: row.gameId,
+    code: row.code,
+    awaySourceCode: row.awaySourceCode,
+    homeSourceCode: row.homeSourceCode,
+  };
+};
+
+const parseBindings = (raw: unknown): GameBinding[] => {
+  let items: unknown[] = [];
+
+  if (Array.isArray(raw)) {
+    items = raw;
+  } else if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        items = parsed;
+      }
+    } catch {
+      items = [];
+    }
+  }
+
+  return items
+    .map(toGameBinding)
+    .filter((item): item is GameBinding => item !== null);
+};
+
+const getSeasonYearFromDate = (dateText: string) => {
+  const date = new Date(`${dateText}T00:00:00+09:00`);
+  if (Number.isNaN(date.getTime())) {
+    return new Date().getFullYear();
+  }
+  return date.getFullYear();
+};
+
+const applyTournamentLabels = (
+  schedules: PenpenScheduleEntry[],
+  bindingRows: TournamentBindingRow[],
+) => {
+  const bindingMap = new Map<string, TournamentBindingRow>();
+  bindingRows.forEach((row) => {
+    bindingMap.set(`${row.league_id}:${row.season_year}`, row);
+  });
+
+  return schedules.map((day) => {
+    const seasonYear = getSeasonYearFromDate(day.date);
+    const games = day.games.map((game) => {
+      if (game.gameType !== "トーナメント" || !game.leagueId) {
+        return game;
+      }
+
+      const binding = bindingMap.get(`${game.leagueId}:${seasonYear}`);
+      if (!binding) {
+        return game;
+      }
+
+      const parsedBindings = parseBindings(binding.bindings);
+      const gameBinding = parsedBindings.find(
+        (item) => item.gameId === game.id,
+      );
+      if (!gameBinding) {
+        return game;
+      }
+
+      const isThirdPlace =
+        Boolean(binding.third_place_code) &&
+        gameBinding.code === binding.third_place_code;
+      const outcomeLabel = isThirdPlace ? "敗者" : "勝者";
+
+      const awayTeam =
+        game.awayTeam === UNDECIDED_TEAM_NAME && gameBinding.awaySourceCode
+          ? `${gameBinding.awaySourceCode}の${outcomeLabel}`
+          : game.awayTeam;
+      const homeTeam =
+        game.homeTeam === UNDECIDED_TEAM_NAME && gameBinding.homeSourceCode
+          ? `${gameBinding.homeSourceCode}の${outcomeLabel}`
+          : game.homeTeam;
+
+      return {
+        ...game,
+        awayTeam,
+        homeTeam,
+      };
+    });
+
+    return {
+      ...day,
+      games,
+    };
+  });
+};
 
 const getScoreTone = (awayScore: number, homeScore: number) => {
   if (awayScore > homeScore) {
@@ -36,11 +161,24 @@ const getScoreTone = (awayScore: number, homeScore: number) => {
 
 export default async function SchedulePage() {
   const supabase = await createClient();
-  const [schedules, headerImageUrl, masterData] = await Promise.all([
-    fetchPenpenScheduleEntries(supabase),
-    fetchPenpenHeaderImageUrl(supabase),
-    fetchPenpenMasters(supabase),
-  ]);
+  const [schedules, headerImageUrl, masterData, tournamentBindingsRes] =
+    await Promise.all([
+      fetchPenpenScheduleEntries(supabase),
+      fetchPenpenHeaderImageUrl(supabase),
+      fetchPenpenMasters(supabase),
+      supabase
+        .schema("penpen")
+        .from("tournament_bindings")
+        .select("league_id, season_year, third_place_code, bindings"),
+    ]);
+  if (tournamentBindingsRes.error) {
+    throw tournamentBindingsRes.error;
+  }
+
+  const schedulesWithTournamentLabel = applyTournamentLabels(
+    schedules,
+    (tournamentBindingsRes.data ?? []) as TournamentBindingRow[],
+  );
   const leagueNameById = new Map(
     masterData.leagues.map((league) => [league.id, league.name]),
   );
@@ -81,7 +219,7 @@ export default async function SchedulePage() {
               </p>
             </section>
           ) : (
-            schedules.map((day) => (
+            schedulesWithTournamentLabel.map((day) => (
               <section key={day.id} className="relative">
                 <div className="top-4 z-20 mb-4 inline-block bg-zinc-800 text-white px-6 py-2 rounded-full shadow-lg font-black text-xl md:text-2xl">
                   <div className="flex items-center gap-3 whitespace-nowrap">

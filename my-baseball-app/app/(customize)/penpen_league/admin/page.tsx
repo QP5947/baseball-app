@@ -30,6 +30,13 @@ const menuItems = [
     href: "/penpen_league/admin/tournaments",
     icon: GitBranch,
   },
+  /* 画像アップロードでトーナメント表を表示するモード
+  {
+    title: "トーナメント管理",
+    href: "/penpen_league/admin/tournament-temp",
+    icon: GitBranch,
+  },
+*/
   { title: "大会規定管理", href: "/penpen_league/admin/rules", icon: FileText },
   { title: "チーム管理", href: "/penpen_league/admin/teams", icon: Users },
   { title: "球場管理", href: "/penpen_league/admin/grounds", icon: MapPin },
