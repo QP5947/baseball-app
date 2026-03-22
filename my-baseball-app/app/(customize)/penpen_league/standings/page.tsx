@@ -249,10 +249,11 @@ export default function StandingsPage() {
     void load();
   }, []);
 
-  const orderedTeams = useMemo(
-    () => standings.map((item) => item),
-    [standings],
-  );
+  const orderedTeams = useMemo(() => {
+    const played = standings.filter((item) => item.g > 0);
+    const noGames = standings.filter((item) => item.g === 0);
+    return [...played, ...noGames];
+  }, [standings]);
 
   const getWinRate = (team: TeamStanding) =>
     team.w + team.l > 0 ? team.w / (team.w + team.l) : 0;
@@ -279,6 +280,15 @@ export default function StandingsPage() {
     let previousTeam: TeamStanding | undefined;
 
     return orderedTeams.map((team, index) => {
+      if (team.g === 0) {
+        previousTeam = team;
+        return {
+          team,
+          rank: null,
+          winRate: getWinRate(team),
+        };
+      }
+
       if (!previousTeam || !isSameRank(team, previousTeam)) {
         currentRank = index + 1;
       }
@@ -810,7 +820,7 @@ export default function StandingsPage() {
                           className="hover:bg-blue-50/50 transition-colors"
                         >
                           <td className="p-3 border border-slate-100 text-center italic font-black text-slate-400">
-                            {rank}
+                            {rank ?? ""}
                           </td>
                           <td className="p-3 border border-slate-100 text-slate-800">
                             {team.name}
