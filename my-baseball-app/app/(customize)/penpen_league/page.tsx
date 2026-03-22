@@ -83,6 +83,24 @@ export default async function HomePage() {
   const leagueNameById = new Map(
     masters.leagues.map((league) => [league.id, league.name]),
   );
+  const getCompetitionLabels = (game: {
+    gameType: string;
+    leagueId: string | null;
+    tournamentDisplayName: string | null;
+  }) => {
+    if (!game.leagueId || game.leagueId === DEFAULT_LEAGUE_ID) {
+      return null;
+    }
+
+    const leagueLabel = leagueNameById.get(game.leagueId) ?? "-";
+    const tournamentLabel =
+      game.gameType === "トーナメント" ? game.tournamentDisplayName : null;
+
+    return {
+      leagueLabel,
+      tournamentLabel,
+    };
+  };
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -223,12 +241,25 @@ export default async function HomePage() {
                             <Clock size={18} />
                             {game.startTime}〜{game.endTime}
                           </div>
-                          {game.leagueId &&
-                          game.leagueId !== DEFAULT_LEAGUE_ID ? (
-                            <span className="rounded-lg bg-blue-50 px-2 py-1 text-sm font-bold text-blue-700">
-                              {leagueNameById.get(game.leagueId) ?? "-"}
-                            </span>
-                          ) : null}
+                          {(() => {
+                            const labels = getCompetitionLabels(game);
+                            if (!labels) {
+                              return null;
+                            }
+
+                            return (
+                              <span className="inline-flex flex-col items-start gap-1">
+                                <span className="rounded-lg bg-blue-50 px-2 py-1 text-sm font-bold text-blue-700">
+                                  {labels.leagueLabel}
+                                </span>
+                                {labels.tournamentLabel ? (
+                                  <span className="rounded-lg bg-emerald-50 px-2 py-1 text-sm font-bold text-emerald-700">
+                                    {labels.tournamentLabel}
+                                  </span>
+                                ) : null}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-3">
                           <div className="flex-1 text-left md:text-right w-full">
@@ -398,12 +429,25 @@ export default async function HomePage() {
                           <Clock size={20} /> {game.startTime}〜 (第
                           {originalIndex + 1}試合)
                         </div>
-                        {game.leagueId &&
-                        game.leagueId !== DEFAULT_LEAGUE_ID ? (
-                          <span className="rounded-lg bg-blue-50 px-2 py-1 text-sm font-bold text-blue-700">
-                            {leagueNameById.get(game.leagueId) ?? "-"}
-                          </span>
-                        ) : null}
+                        {(() => {
+                          const labels = getCompetitionLabels(game);
+                          if (!labels) {
+                            return null;
+                          }
+
+                          return (
+                            <span className="inline-flex flex-col items-start gap-1">
+                              <span className="rounded-lg bg-blue-50 px-2 py-1 text-sm font-bold text-blue-700">
+                                {labels.leagueLabel}
+                              </span>
+                              {labels.tournamentLabel ? (
+                                <span className="rounded-lg bg-emerald-50 px-2 py-1 text-sm font-bold text-emerald-700">
+                                  {labels.tournamentLabel}
+                                </span>
+                              ) : null}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <div className="flex flex-col md:flex-row justify-between items-center pt-1 gap-2 md:gap-4">
                         <div className="text-base sm:text-lg md:text-xl font-black whitespace-nowrap text-left md:text-left w-full md:w-auto">

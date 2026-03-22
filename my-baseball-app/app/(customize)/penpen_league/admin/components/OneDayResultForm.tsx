@@ -83,6 +83,25 @@ export default function OneDayResultForm() {
     [scheduleEntries],
   );
 
+  const getCompetitionLabels = (game: {
+    gameType: string;
+    leagueId: string | null;
+    tournamentDisplayName: string | null;
+  }) => {
+    if (!game.leagueId || game.leagueId === DEFAULT_LEAGUE_ID) {
+      return null;
+    }
+
+    const leagueLabel = leagueNameById[game.leagueId] ?? "-";
+    const tournamentLabel =
+      game.gameType === "トーナメント" ? game.tournamentDisplayName : null;
+
+    return {
+      leagueLabel,
+      tournamentLabel,
+    };
+  };
+
   const selectedEntry = useMemo(() => {
     for (const entry of sortedEntries) {
       if (entry.games.length === 0) continue;
@@ -309,12 +328,25 @@ export default function OneDayResultForm() {
                           <p>
                             {game.startTime}〜{game.endTime}
                           </p>
-                          {game.leagueId &&
-                          game.leagueId !== DEFAULT_LEAGUE_ID ? (
-                            <span className="inline-flex items-center rounded-lg bg-blue-50 px-2 py-1 text-sm font-bold text-blue-700">
-                              {leagueNameById[game.leagueId] ?? "-"}
-                            </span>
-                          ) : null}
+                          {(() => {
+                            const labels = getCompetitionLabels(game);
+                            if (!labels) {
+                              return null;
+                            }
+
+                            return (
+                              <span className="inline-flex flex-col items-start gap-1">
+                                <span className="inline-flex items-center rounded-lg bg-blue-50 px-2 py-1 text-sm font-bold text-blue-700">
+                                  {labels.leagueLabel}
+                                </span>
+                                {labels.tournamentLabel ? (
+                                  <span className="inline-flex items-center rounded-lg bg-emerald-50 px-2 py-1 text-sm font-bold text-emerald-700">
+                                    {labels.tournamentLabel}
+                                  </span>
+                                ) : null}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="flex flex-col items-start gap-2 md:flex-row md:items-center md:gap-4">
                           <span className="inline-flex items-center gap-1">
