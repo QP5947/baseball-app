@@ -30,6 +30,7 @@ export type PenpenGame = {
   homeScore: number | null;
   isCanceled: boolean;
   forfeitWinner: "away" | "home" | null;
+  tournamentDisplayName: string | null;
 };
 
 export type PenpenScheduleEntry = {
@@ -98,6 +99,17 @@ type DayResultRow = {
   note: string | null;
 };
 
+type TournamentBindingRow = {
+  league_id: string;
+  season_year: number;
+  bindings: unknown;
+};
+
+type TournamentGameBinding = {
+  gameId: string;
+  code: string;
+};
+
 const toHm = (value: string | null | undefined) => (value ?? "").slice(0, 5);
 
 const mapGameType = (value: string): GameTypeLabel => {
@@ -105,6 +117,53 @@ const mapGameType = (value: string): GameTypeLabel => {
     return "トーナメント";
   }
   return "リーグ戦";
+};
+
+const getSeasonYearFromDate = (dateText: string) => {
+  const date = new Date(`${dateText}T00:00:00+09:00`);
+  if (Number.isNaN(date.getTime())) {
+    return new Date().getFullYear();
+  }
+  return date.getFullYear();
+};
+
+const toTournamentGameBinding = (
+  value: unknown,
+): TournamentGameBinding | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const row = value as Record<string, unknown>;
+  if (typeof row.gameId !== "string" || typeof row.code !== "string") {
+    return null;
+  }
+
+  return {
+    gameId: row.gameId,
+    code: row.code.trim(),
+  };
+};
+
+const parseTournamentBindings = (raw: unknown): TournamentGameBinding[] => {
+  let items: unknown[] = [];
+
+  if (Array.isArray(raw)) {
+    items = raw;
+  } else if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        items = parsed;
+      }
+    } catch {
+      items = [];
+    }
+  }
+
+  return items
+    .map(toTournamentGameBinding)
+    .filter((item): item is TournamentGameBinding => item !== null);
 };
 
 const formatWeekdayDate = (dateInput: string) => {
@@ -200,6 +259,7 @@ export async function fetchPenpenScheduleEntries(supabase: SupabaseClient) {
     stadiumsRes,
     resultRes,
     dayResultRes,
+    tournamentBindingsRes,
   ] = await Promise.all([
     penpen
       .from("schedule_days")
@@ -226,6 +286,9 @@ export async function fetchPenpenScheduleEntries(supabase: SupabaseClient) {
         "scheduled_game_id, away_score, home_score, is_canceled, forfeit_winner",
       ),
     penpen.from("schedule_day_results").select("schedule_day_id, note"),
+    penpen
+      .from("tournament_bindings")
+      .select("league_id, season_year, bindings"),
   ]);
 
   if (daysRes.error) throw daysRes.error;
@@ -235,6 +298,36 @@ export async function fetchPenpenScheduleEntries(supabase: SupabaseClient) {
   if (stadiumsRes.error) throw stadiumsRes.error;
   if (resultRes.error) throw resultRes.error;
   if (dayResultRes.error) throw dayResultRes.error;
+  if (tournamentBindingsRes.error) throw tournamentBindingsRes.error;
+
+  const daySeasonYearById = new Map(
+    ((daysRes.data ?? []) as ScheduleDayRow[]).map((day) => [
+      day.id,
+      getSeasonYearFromDate(day.match_date),
+    ]),
+  );
+
+  const tournamentDisplayMapByLeagueSeason = new Map<
+    string,
+    Map<string, string>
+  >();
+  ((tournamentBindingsRes.data ?? []) as TournamentBindingRow[]).forEach(
+    (row) => {
+      const bindings = parseTournamentBindings(row.bindings);
+      const gameIdToCode = new Map<string, string>();
+
+      bindings.forEach((item) => {
+        if (item.code) {
+          gameIdToCode.set(item.gameId, item.code);
+        }
+      });
+
+      tournamentDisplayMapByLeagueSeason.set(
+        `${row.league_id}:${row.season_year}`,
+        gameIdToCode,
+      );
+    },
+  );
 
   const teamMap = new Map(
     ((teamsRes.data ?? []) as { id: string; name: string }[]).map((item) => [
@@ -272,6 +365,16 @@ export async function fetchPenpenScheduleEntries(supabase: SupabaseClient) {
   ((gamesRes.data ?? []) as ScheduledGameRow[]).forEach((row) => {
     const current = gamesMap.get(row.schedule_day_id) ?? [];
     const rowResult = resultMap.get(row.id);
+    const gameType = mapGameType(row.game_type);
+    const seasonYear = daySeasonYearById.get(row.schedule_day_id);
+    const tournamentDisplayName =
+      gameType === "トーナメント" &&
+      row.league_id &&
+      typeof seasonYear === "number"
+        ? (tournamentDisplayMapByLeagueSeason
+            .get(`${row.league_id}:${seasonYear}`)
+            ?.get(row.id) ?? null)
+        : null;
 
     current.push({
       id: row.id,
@@ -283,7 +386,7 @@ export async function fetchPenpenScheduleEntries(supabase: SupabaseClient) {
       homeTeamId: row.home_team_id,
       homeTeam: teamMap.get(row.home_team_id) ?? "-",
       leagueId: row.league_id,
-      gameType: mapGameType(row.game_type),
+      gameType,
       awayScore: rowResult?.away_score ?? null,
       homeScore: rowResult?.home_score ?? null,
       isCanceled: rowResult?.is_canceled ?? false,
@@ -291,6 +394,7 @@ export async function fetchPenpenScheduleEntries(supabase: SupabaseClient) {
         | "away"
         | "home"
         | null,
+      tournamentDisplayName,
     });
     gamesMap.set(row.schedule_day_id, current);
   });

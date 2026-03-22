@@ -182,6 +182,24 @@ export default async function SchedulePage() {
   const leagueNameById = new Map(
     masterData.leagues.map((league) => [league.id, league.name]),
   );
+  const getCompetitionLabels = (game: {
+    gameType: string;
+    leagueId: string | null;
+    tournamentDisplayName: string | null;
+  }) => {
+    if (!game.leagueId || game.leagueId === DEFAULT_LEAGUE_ID) {
+      return null;
+    }
+
+    const leagueLabel = leagueNameById.get(game.leagueId) ?? "-";
+    const tournamentLabel =
+      game.gameType === "トーナメント" ? game.tournamentDisplayName : null;
+
+    return {
+      leagueLabel,
+      tournamentLabel,
+    };
+  };
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -252,12 +270,25 @@ export default async function SchedulePage() {
                               <Clock size={20} />
                               {game.startTime}〜
                             </span>
-                            {game.leagueId &&
-                            game.leagueId !== DEFAULT_LEAGUE_ID ? (
-                              <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg font-bold text-sm whitespace-nowrap">
-                                {leagueNameById.get(game.leagueId) ?? "-"}
-                              </span>
-                            ) : null}
+                            {(() => {
+                              const labels = getCompetitionLabels(game);
+                              if (!labels) {
+                                return null;
+                              }
+
+                              return (
+                                <span className="inline-flex flex-col items-start gap-1">
+                                  <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg font-bold text-sm whitespace-nowrap">
+                                    {labels.leagueLabel}
+                                  </span>
+                                  {labels.tournamentLabel ? (
+                                    <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg font-bold text-sm whitespace-nowrap">
+                                      {labels.tournamentLabel}
+                                    </span>
+                                  ) : null}
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
 
