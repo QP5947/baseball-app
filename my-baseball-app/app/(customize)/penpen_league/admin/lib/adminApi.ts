@@ -5,14 +5,27 @@ type MatchCondition = {
   value: Primitive;
 };
 
+type OrderCondition = {
+  column: string;
+  ascending?: boolean;
+};
+
 type MutatePayload = {
-  action: "insert" | "upsert" | "update" | "delete" | "ensureUndecidedTeam";
+  action:
+    | "insert"
+    | "upsert"
+    | "update"
+    | "delete"
+    | "ensureUndecidedTeam"
+    | "select";
   table?: string;
   rows?: Record<string, Primitive>[];
   values?: Record<string, Primitive>;
   onConflict?: string;
   match?: MatchCondition[];
   returning?: string[];
+  columns?: string[];
+  orderBy?: OrderCondition[];
   single?: boolean;
 };
 

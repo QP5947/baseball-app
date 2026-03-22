@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Check, GripVertical, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { penpenAdminMutate } from "../lib/adminApi";
 import type { PenpenMaster } from "../../lib/penpenData";
 
@@ -28,8 +27,6 @@ export default function PenpenAdminLeaguesPage() {
   useEffect(() => {
     document.title = "リーグ管理 | ペンペンリーグ";
   }, []);
-
-  const supabase = createClient();
 
   const [leagues, setLeagues] = useState<PenpenMaster[]>([]);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -66,30 +63,41 @@ export default function PenpenAdminLeaguesPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data, error } = await supabase
-        .schema("penpen")
-        .from("leagues")
-        .select("id, name, is_enabled, sort_order")
-        .order("sort_order", { ascending: true });
+      try {
+        const response = await penpenAdminMutate<
+          {
+            id: string;
+            name: string;
+            is_enabled: boolean;
+            sort_order: number;
+          }[]
+        >({
+          action: "select",
+          table: "leagues",
+          columns: ["id", "name", "is_enabled", "sort_order"],
+          orderBy: [{ column: "sort_order", ascending: true }],
+        });
 
-      if (error) {
-        window.alert(`大会データの取得に失敗しました: ${error.message}`);
+        const data = response.data ?? [];
+        setLeagues(
+          data.map((item) => ({
+            id: item.id,
+            name: item.name,
+            isEnabled: item.is_enabled,
+            sortOrder: item.sort_order,
+          })),
+        );
+        setDirtyRowIds(new Set());
+      } catch (error) {
+        window.alert(
+          `大会データの取得に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+        );
         return;
       }
-
-      setLeagues(
-        (data ?? []).map((item) => ({
-          id: item.id,
-          name: item.name,
-          isEnabled: item.is_enabled,
-          sortOrder: item.sort_order,
-        })),
-      );
-      setDirtyRowIds(new Set());
     };
 
     void load();
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     return () => {

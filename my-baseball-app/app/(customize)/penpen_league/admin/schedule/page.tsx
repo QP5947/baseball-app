@@ -10,11 +10,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { penpenAdminMutate } from "../lib/adminApi";
 import {
-  fetchPenpenMasters,
-  fetchPenpenScheduleEntries,
   getPeriodFromDate,
   type PenpenMaster,
   type PenpenScheduleEntry,
@@ -147,8 +144,6 @@ export default function PenpenAdminSchedulePage() {
     document.title = "試合日程入力 | ペンペンリーグ";
   }, []);
 
-  const supabase = createClient();
-
   const [date, setDate] = useState(() => getTodayDateInput());
   const [stadiumId, setStadiumId] = useState("");
   const [games, setGames] = useState<GameInput[]>(() => createDefaultGames());
@@ -204,15 +199,34 @@ export default function PenpenAdminSchedulePage() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [
-        { leagues: leagueData, teams: teamData, stadiums: stadiumData },
-        entryData,
-        undecidedId,
-      ] = await Promise.all([
-        fetchPenpenMasters(supabase),
-        fetchPenpenScheduleEntries(supabase),
+      const [dashboardResponse, undecidedId] = await Promise.all([
+        fetch("/penpen_league/admin/api/dashboard", {
+          method: "GET",
+          credentials: "same-origin",
+        }),
         ensureUndecidedTeam(),
       ]);
+
+      const dashboardPayload = (await dashboardResponse
+        .json()
+        .catch(() => null)) as {
+        message?: string;
+        entries?: PenpenScheduleEntry[];
+        masters?: {
+          leagues: PenpenMaster[];
+          teams: PenpenMaster[];
+          stadiums: PenpenMaster[];
+        };
+      } | null;
+
+      if (!dashboardResponse.ok) {
+        throw new Error(dashboardPayload?.message ?? "unknown");
+      }
+
+      const leagueData = dashboardPayload?.masters?.leagues ?? [];
+      const teamData = dashboardPayload?.masters?.teams ?? [];
+      const stadiumData = dashboardPayload?.masters?.stadiums ?? [];
+      const entryData = dashboardPayload?.entries ?? [];
 
       setLeagues(leagueData);
       setUndecidedTeamId(undecidedId);
@@ -234,7 +248,7 @@ export default function PenpenAdminSchedulePage() {
         `日程データの取得に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
       );
     }
-  }, [editingEntryId, ensureUndecidedTeam, supabase]);
+  }, [editingEntryId, ensureUndecidedTeam]);
 
   useEffect(() => {
     void loadAll();

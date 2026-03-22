@@ -2,12 +2,7 @@
 
 import { Calendar, DoorClosedLocked, DoorOpen, MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import {
-  fetchPenpenMasters,
-  fetchPenpenScheduleEntries,
-  type PenpenScheduleEntry,
-} from "../../lib/penpenData";
+import { type PenpenScheduleEntry } from "../../lib/penpenData";
 
 const DEFAULT_LEAGUE_ID = "1b8cbac7-ab3f-4006-bcad-d4db00e7e65c";
 
@@ -19,8 +14,6 @@ type GameResult = {
 };
 
 export default function OneDayResultForm() {
-  const supabase = createClient();
-
   const [scheduleEntries, setScheduleEntries] = useState<PenpenScheduleEntry[]>(
     [],
   );
@@ -33,15 +26,29 @@ export default function OneDayResultForm() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [entries, masters] = await Promise.all([
-          fetchPenpenScheduleEntries(supabase),
-          fetchPenpenMasters(supabase),
-        ]);
+        const response = await fetch("/penpen_league/admin/api/dashboard", {
+          method: "GET",
+          credentials: "same-origin",
+        });
+
+        const payload = (await response.json().catch(() => null)) as {
+          message?: string;
+          entries?: PenpenScheduleEntry[];
+          masters?: {
+            leagues: { id: string; name: string }[];
+          };
+        } | null;
+
+        if (!response.ok) {
+          throw new Error(payload?.message ?? "unknown");
+        }
+
+        const entries = payload?.entries ?? [];
+        const leagues = payload?.masters?.leagues ?? [];
+
         setScheduleEntries(entries);
         setLeagueNameById(
-          Object.fromEntries(
-            masters.leagues.map((league) => [league.id, league.name]),
-          ),
+          Object.fromEntries(leagues.map((league) => [league.id, league.name])),
         );
 
         const nextResults: Record<string, GameResult> = {};
@@ -69,7 +76,7 @@ export default function OneDayResultForm() {
     };
 
     void load();
-  }, [supabase]);
+  }, []);
 
   const sortedEntries = useMemo(
     () => [...scheduleEntries].sort((a, b) => a.date.localeCompare(b.date)),

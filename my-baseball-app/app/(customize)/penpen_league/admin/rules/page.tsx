@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { penpenAdminMutate } from "../lib/adminApi";
 
 type RuleBlock = {
@@ -27,8 +26,6 @@ export default function PenpenAdminRulesPage() {
   useEffect(() => {
     document.title = "大会規定管理 | ペンペンリーグ";
   }, []);
-
-  const supabase = createClient();
 
   const [rules, setRules] = useState<RuleBlock[]>([]);
   const [draftRules, setDraftRules] = useState<RuleBlock[]>([]);
@@ -64,33 +61,45 @@ export default function PenpenAdminRulesPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data, error } = await supabase
-        .schema("penpen")
-        .from("rule_blocks")
-        .select("id, title, body, is_enabled, sort_order")
-        .order("sort_order", { ascending: true });
+      try {
+        const response = await penpenAdminMutate<
+          {
+            id: string;
+            title: string;
+            body: string;
+            is_enabled: boolean;
+            sort_order: number;
+          }[]
+        >({
+          action: "select",
+          table: "rule_blocks",
+          columns: ["id", "title", "body", "is_enabled", "sort_order"],
+          orderBy: [{ column: "sort_order", ascending: true }],
+        });
 
-      if (error) {
-        window.alert(`規定データの取得に失敗しました: ${error.message}`);
+        const data = response.data ?? [];
+        const loaded = normalizeRules(
+          data.map((item) => ({
+            id: item.id,
+            title: item.title,
+            body: item.body,
+            isEnabled: item.is_enabled,
+            sortOrder: item.sort_order,
+          })),
+        );
+
+        setRules(loaded);
+        setDraftRules(loaded);
+      } catch (error) {
+        window.alert(
+          `規定データの取得に失敗しました: ${error instanceof Error ? error.message : "unknown"}`,
+        );
         return;
       }
-
-      const loaded = normalizeRules(
-        (data ?? []).map((item) => ({
-          id: item.id,
-          title: item.title,
-          body: item.body,
-          isEnabled: item.is_enabled,
-          sortOrder: item.sort_order,
-        })),
-      );
-
-      setRules(loaded);
-      setDraftRules(loaded);
     };
 
     void load();
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     return () => {
