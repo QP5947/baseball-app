@@ -4,11 +4,10 @@ import Image from "next/image";
 import {
   ArrowLeft,
   Calendar,
-  FileText,
-  MapPin,
   Clock,
   DoorOpen,
   DoorClosedLocked,
+  Trophy,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -24,6 +23,8 @@ export const metadata: Metadata = { title: "日程表" };
 const DEFAULT_LEAGUE_ID = "1b8cbac7-ab3f-4006-bcad-d4db00e7e65c";
 const UNDECIDED_TEAM_NAME = "未定";
 
+type SchedulePeriodKey = "spring" | "summer" | "autumn";
+
 type TournamentBindingRow = {
   league_id: string;
   season_year: number;
@@ -37,6 +38,16 @@ type GameBinding = {
   awaySourceCode: string;
   homeSourceCode: string;
 };
+
+const SCHEDULE_PERIODS: Array<{
+  key: SchedulePeriodKey;
+  label: string;
+  months: number[];
+}> = [
+  { key: "spring", label: "3〜5月", months: [3, 4, 5] },
+  { key: "summer", label: "6〜8月", months: [6, 7, 8] },
+  { key: "autumn", label: "9〜11月", months: [9, 10, 11] },
+];
 
 const toGameBinding = (value: unknown): GameBinding | null => {
   if (!value || typeof value !== "object") {
@@ -88,6 +99,32 @@ const getSeasonYearFromDate = (dateText: string) => {
     return new Date().getFullYear();
   }
   return date.getFullYear();
+};
+
+const getMonthFromDate = (dateText: string) => {
+  const date = new Date(`${dateText}T00:00:00+09:00`);
+  if (Number.isNaN(date.getTime())) {
+    return new Date().getMonth() + 1;
+  }
+  return date.getMonth() + 1;
+};
+
+const getDefaultSchedulePeriod = (): SchedulePeriodKey => {
+  const month = new Date().getMonth() + 1;
+  if (month >= 6 && month <= 8) {
+    return "summer";
+  }
+  if (month >= 9 && month <= 11) {
+    return "autumn";
+  }
+  return "spring";
+};
+
+const normalizeSchedulePeriod = (value?: string): SchedulePeriodKey => {
+  if (value === "spring" || value === "summer" || value === "autumn") {
+    return value;
+  }
+  return getDefaultSchedulePeriod();
 };
 
 const applyTournamentLabels = (
@@ -159,7 +196,14 @@ const getScoreTone = (awayScore: number, homeScore: number) => {
   return { away: "text-gray-500", home: "text-gray-500" };
 };
 
-export default async function SchedulePage() {
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
+  const { period } = await searchParams;
+  const selectedPeriod = normalizeSchedulePeriod(period);
+
   const supabase = await createClient();
   const [schedules, headerImageUrl, masterData, tournamentBindingsRes] =
     await Promise.all([
@@ -178,6 +222,12 @@ export default async function SchedulePage() {
   const schedulesWithTournamentLabel = applyTournamentLabels(
     schedules,
     (tournamentBindingsRes.data ?? []) as TournamentBindingRow[],
+  );
+  const activePeriod =
+    SCHEDULE_PERIODS.find((item) => item.key === selectedPeriod) ??
+    SCHEDULE_PERIODS[0];
+  const filteredSchedules = schedulesWithTournamentLabel.filter((day) =>
+    activePeriod.months.includes(getMonthFromDate(day.date)),
   );
   const leagueNameById = new Map(
     masterData.leagues.map((league) => [league.id, league.name]),
@@ -202,8 +252,8 @@ export default async function SchedulePage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="relative h-48 md:h-64 flex items-center justify-center overflow-hidden">
+    <main className="min-h-screen bg-slate-50">
+      <header className="relative flex h-32 items-center justify-center overflow-hidden md:h-44">
         <Image
           src={headerImageUrl}
           alt="PENPEN LEAGUE ヘッダー画像"
@@ -214,222 +264,203 @@ export default async function SchedulePage() {
         />
         <div className="absolute inset-0 bg-blue-900/60 z-10"></div>
         <div className="relative z-30 text-center">
-          <h1 className="text-4xl md:text-6xl font-black italic text-white drop-shadow-lg whitespace-nowrap">
+          <h1 className="text-3xl font-black italic text-white drop-shadow-lg md:text-4xl">
             PENPEN LEAGUE
           </h1>
-          <p className="text-white font-bold text-lg md:text-xl mt-2">日程表</p>
+          <p className="mt-1 text-base font-bold text-white md:text-lg">
+            日程表
+          </p>
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto p-4 md:p-8">
+      <div className="mx-auto max-w-4xl p-4 md:p-6">
         <Link
           href="./"
-          className="inline-flex items-center gap-2 mb-8 font-bold text-gray-500 hover:text-blue-600"
+          className="mb-4 inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-blue-600 md:text-base"
         >
-          <ArrowLeft size={20} /> ホームへ戻る
+          <ArrowLeft size={18} /> ホームへ戻る
         </Link>
 
-        <div className="space-y-12">
-          {schedules.length === 0 ? (
-            <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <p className="text-base text-gray-500">
-                日程はまだ登録されていません。
-              </p>
-            </section>
-          ) : (
-            schedulesWithTournamentLabel.map((day) => (
-              <section key={day.id} className="relative">
-                <div className="top-4 z-20 mb-4 inline-block bg-zinc-800 text-white px-6 py-2 rounded-full shadow-lg font-black text-xl md:text-2xl">
-                  <div className="flex items-center gap-3 whitespace-nowrap">
-                    <Calendar size={24} />
-                    {toDisplayDate(day.date)}
+        {/* 期間選択セクション - 高さを抑えて一覧性を確保 */}
+        <section className="mb-6 overflow-x-auto pb-2">
+          <div className="flex gap-2">
+            {SCHEDULE_PERIODS.map((item) => {
+              const isActive = item.key === activePeriod.key;
+              return (
+                <Link
+                  key={item.key}
+                  href={`?period=${item.key}`}
+                  className={`whitespace-nowrap rounded-lg border px-4 py-1.5 text-base font-bold transition ${
+                    isActive
+                      ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-blue-300"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        <div className="space-y-3">
+          {filteredSchedules.map((day) => (
+            <section
+              key={day.id}
+              className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+            >
+              <div className="flex flex-col md:flex-row">
+                {/* 日付セクション: よりモダンで清潔感のあるデザインへ */}
+                <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/50 px-3 py-1.5 md:w-28 md:flex-col md:justify-center md:border-b-0 md:border-r md:py-2">
+                  <div className="flex items-baseline gap-1 text-blue-700 md:flex-col md:items-center md:gap-0">
+                    <span className="text-sm font-bold md:text-base">
+                      {new Date(day.date).getMonth() + 1}月
+                    </span>
+                    <span className="text-2xl font-black leading-none md:text-3xl">
+                      {new Date(day.date).getDate()}
+                    </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="flex-1 space-y-1 p-1.5 md:p-2">
                   {day.games.length === 0 ? (
-                    <div className="bg-white rounded-2xl p-8 shadow-md border border-gray-200 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-3xl font-black text-gray-400 mb-2">
-                          休み
-                        </div>
-                      </div>
+                    <div className="py-3 text-center text-base font-bold text-slate-400">
+                      試合予定なし
                     </div>
                   ) : (
-                    day.games.map((game, index) => (
-                      <div
-                        key={game.id}
-                        className="bg-white rounded-2xl p-6 shadow-md border border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4"
-                      >
-                        <div className="flex items-center gap-4 w-full md:w-auto">
-                          <div className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-black whitespace-nowrap">
-                            第{index + 1}試合
-                          </div>
-                          <div className="flex flex-col items-start gap-1 text-blue-600 font-bold text-xl whitespace-nowrap">
-                            <span className="inline-flex items-center gap-2">
-                              <Clock size={20} />
-                              {game.startTime}〜
-                            </span>
-                            {(() => {
-                              const labels = getCompetitionLabels(game);
-                              if (!labels) {
-                                return null;
-                              }
+                    day.games.map((game, index) => {
+                      const labels = getCompetitionLabels(game);
 
-                              return (
-                                <span className="inline-flex flex-col items-start gap-1">
-                                  <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg font-bold text-sm whitespace-nowrap">
-                                    {labels.leagueLabel}
+                      return (
+                        <article
+                          key={game.id}
+                          className="rounded-lg border border-slate-100 bg-white p-2 transition-colors hover:bg-slate-50"
+                        >
+                          <div className="grid gap-1 md:grid-cols-[64px_minmax(0,1fr)] md:items-center md:gap-0">
+                            {/* 試合情報 */}
+                            <div className="flex min-w-0 items-center gap-1 whitespace-nowrap">
+                              <span className="flex items-center gap-1 text-base font-black text-blue-600">
+                                <Clock size={16} />
+                                {game.startTime}
+                              </span>
+                              {labels?.tournamentLabel ? (
+                                <span className="ml-auto inline-flex max-w-36 items-center gap-1.5 overflow-hidden md:hidden">
+                                  <span
+                                    title={labels.leagueLabel}
+                                    aria-label={labels.leagueLabel}
+                                    className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-blue-600"
+                                  >
+                                    <Trophy size={14} />
                                   </span>
-                                  {labels.tournamentLabel ? (
-                                    <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg font-bold text-sm whitespace-nowrap">
-                                      {labels.tournamentLabel}
-                                    </span>
-                                  ) : null}
+                                  <span className="truncate rounded bg-emerald-50 px-2 py-0.5 text-sm font-bold text-emerald-700">
+                                    {labels.tournamentLabel}
+                                  </span>
                                 </span>
-                              );
-                            })()}
-                          </div>
-                        </div>
+                              ) : null}
+                            </div>
 
-                        <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4 w-full md:flex-1">
-                          <div className="flex flex-col items-start md:items-end flex-1 min-w-0 w-full">
-                            <div className="inline-block">
-                              <div className="text-base sm:text-lg md:text-xl font-black text-left md:text-right whitespace-nowrap">
+                            {/* 対戦カード */}
+                            <div className="grid grid-cols-1 items-center gap-1 md:-ml-8 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-1.5">
+                              <div className="truncate whitespace-nowrap pl-1 text-left text-base font-black text-slate-800 md:pr-1 md:text-right">
                                 {index === 0 && (
                                   <DoorOpen
-                                    size={18}
-                                    className="inline-block mr-1 text-orange-500 align-[-3px]"
+                                    size={16}
+                                    className="mr-1 inline text-orange-400"
                                   />
                                 )}
                                 {game.awayTeam}
                               </div>
-                            </div>
-                          </div>
 
-                          <div className="flex items-center justify-center shrink-0 px-2">
-                            {game.forfeitWinner !== null ? (
-                              <div className="flex flex-col sm:flex-row items-center gap-1 px-1">
-                                <span
-                                  className={`font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${game.forfeitWinner === "away" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}
-                                >
-                                  {game.forfeitWinner === "away"
-                                    ? "不戦勝"
-                                    : "不戦敗"}
-                                </span>
-                                <span
-                                  className={`font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${game.forfeitWinner === "home" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}
-                                >
-                                  {game.forfeitWinner === "home"
-                                    ? "不戦勝"
-                                    : "不戦敗"}
-                                </span>
-                              </div>
-                            ) : game.isCanceled ? (
-                              <div className="text-sm sm:text-base font-black text-red-600 bg-red-50 px-3 py-1 rounded-xl border border-red-200 whitespace-nowrap">
-                                中止
-                              </div>
-                            ) : game.awayScore !== null &&
-                              game.homeScore !== null ? (
-                              <div className="text-base sm:text-lg md:text-xl font-black bg-zinc-50 px-3 py-1 rounded-xl border border-zinc-200 whitespace-nowrap">
-                                <span
-                                  className={
-                                    getScoreTone(game.awayScore, game.homeScore)
-                                      .away
-                                  }
-                                >
-                                  {game.awayScore}
-                                </span>
-                                <span className="text-zinc-800"> - </span>
-                                <span
-                                  className={
-                                    getScoreTone(game.awayScore, game.homeScore)
-                                      .home
-                                  }
-                                >
-                                  {game.homeScore}
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="text-gray-300 font-black italic text-base sm:text-lg px-2 whitespace-nowrap">
-                                VS
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex flex-col items-end md:items-start flex-1 min-w-0 w-full">
-                            <div className="inline-block">
-                              <div className="text-base sm:text-lg md:text-xl font-black text-right md:text-left whitespace-nowrap">
-                                {game.homeTeam}
-                                {index === day.games.length - 1 && (
-                                  <DoorClosedLocked
-                                    size={18}
-                                    className="inline-block ml-1 text-orange-500 align-[-3px]"
-                                  />
+                              <div className="min-w-15 text-center">
+                                {game.awayScore !== null &&
+                                game.homeScore !== null ? (
+                                  <div className="text-base font-black tracking-tight">
+                                    <span
+                                      className={
+                                        getScoreTone(
+                                          game.awayScore,
+                                          game.homeScore,
+                                        ).away
+                                      }
+                                    >
+                                      {game.awayScore}
+                                    </span>
+                                    <span className="mx-1 text-slate-300">
+                                      -
+                                    </span>
+                                    <span
+                                      className={
+                                        getScoreTone(
+                                          game.awayScore,
+                                          game.homeScore,
+                                        ).home
+                                      }
+                                    >
+                                      {game.homeScore}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm font-black italic text-slate-300">
+                                    VS
+                                  </span>
                                 )}
                               </div>
+
+                              <div className="flex min-w-0 items-center justify-end gap-2 whitespace-nowrap pr-1 text-right text-base font-black text-slate-800 md:justify-start md:pl-1 md:pr-0 md:text-left">
+                                <span className="block max-w-full truncate text-right md:text-left">
+                                  {game.homeTeam}
+                                  {index === day.games.length - 1 ? (
+                                    <DoorClosedLocked
+                                      size={16}
+                                      className="ml-1 inline text-orange-400"
+                                    />
+                                  ) : null}
+                                </span>
+                                {labels?.tournamentLabel ? (
+                                  <span className="ml-auto hidden max-w-36 items-center gap-1.5 overflow-hidden md:inline-flex">
+                                    <span
+                                      title={labels.leagueLabel}
+                                      aria-label={labels.leagueLabel}
+                                      className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-blue-600"
+                                    >
+                                      <Trophy size={14} />
+                                    </span>
+                                    <span className="truncate rounded bg-emerald-50 px-2 py-0.5 text-sm font-bold text-emerald-700">
+                                      {labels.tournamentLabel}
+                                    </span>
+                                  </span>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    ))
+                        </article>
+                      );
+                    })
                   )}
 
-                  {day.restTeams.length > 0 && (
-                    <div className="mt-2 bg-red-100 border-2 border-dashed border-red-200 rounded-2xl p-4">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="bg-red-400 text-white font-black px-2 py-1 rounded">
-                          休み
-                        </span>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1">
-                          {day.restTeams.map((team) => (
-                            <span
-                              key={team}
-                              className="text-gray-500 font-bold"
-                            >
-                              {team}
-                            </span>
-                          ))}
+                  {/* 備考・休みチーム（コンパクト化） */}
+                  {(day.restTeams.length > 0 || day.note || day.resultNote) && (
+                    <div className="mt-2 space-y-1 pt-2 border-t border-slate-50">
+                      {day.restTeams.length > 0 && (
+                        <div className="text-sm font-bold text-slate-500">
+                          <span className="mr-1 text-red-400">●</span>休み：
+                          {day.restTeams.join("、")}
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {(day.note || day.resultNote) && (
-                    <div className="mt-2 bg-blue-100 border-2 border-dashed border-blue-200 rounded-2xl p-4">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="bg-blue-400 text-white font-black px-2 py-1 rounded">
-                          備考
-                        </span>
-                        <span className="text-gray-700 font-bold">
-                          {day.resultNote || day.note}
-                        </span>
-                      </div>
+                      )}
+                      {(day.resultNote || day.note) && (
+                        <div className="text-sm font-bold text-slate-500">
+                          <span className="mr-1 text-blue-400">●</span>
+                          備考：{day.resultNote || day.note}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              </section>
-            ))
-          )}
-        </div>
-
-        <div className="text-sm md:text-base text-gray-500 font-bold px-1 mt-8">
-          <span className="inline-flex items-center mr-4">
-            <DoorOpen size={18} className="mr-1 text-orange-500" /> 準備当番
-          </span>
-          <span className="inline-flex items-center">
-            <DoorClosedLocked size={18} className="mr-1 text-orange-500" />{" "}
-            片付け当番
-          </span>
+              </div>
+            </section>
+          ))}
         </div>
       </div>
-      <footer className="py-20 border-t border-slate-100 text-center bg-white">
-        <div className="opacity-30 font-black tracking-widest hover:underline">
-          <a href="/" target="_blank">
-            Powered by DashBase
-          </a>
-        </div>
-      </footer>
     </main>
   );
 }
