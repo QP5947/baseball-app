@@ -223,9 +223,17 @@ export default async function SchedulePage({
     schedules,
     (tournamentBindingsRes.data ?? []) as TournamentBindingRow[],
   );
+  const availablePeriods = SCHEDULE_PERIODS.filter((periodItem) =>
+    schedulesWithTournamentLabel.some((day) => {
+      const inPeriod = periodItem.months.includes(getMonthFromDate(day.date));
+      return inPeriod && day.games.length > 0;
+    }),
+  );
+  const periodCandidates =
+    availablePeriods.length > 0 ? availablePeriods : SCHEDULE_PERIODS;
   const activePeriod =
-    SCHEDULE_PERIODS.find((item) => item.key === selectedPeriod) ??
-    SCHEDULE_PERIODS[0];
+    periodCandidates.find((item) => item.key === selectedPeriod) ??
+    periodCandidates[0];
   const filteredSchedules = schedulesWithTournamentLabel.filter((day) =>
     activePeriod.months.includes(getMonthFromDate(day.date)),
   );
@@ -281,10 +289,10 @@ export default async function SchedulePage({
           <ArrowLeft size={18} /> ホームへ戻る
         </Link>
 
-        {/* 期間選択セクション - 高さを抑えて一覧性を確保 */}
+        {/* 期間選択セクション */}
         <section className="mb-6 overflow-x-auto pb-2">
           <div className="flex gap-2">
-            {SCHEDULE_PERIODS.map((item) => {
+            {periodCandidates.map((item) => {
               const isActive = item.key === activePeriod.key;
               return (
                 <Link
@@ -438,7 +446,7 @@ export default async function SchedulePage({
                     })
                   )}
 
-                  {/* 備考・休みチーム（コンパクト化） */}
+                  {/* 備考・休みチーム */}
                   {(day.restTeams.length > 0 || day.note || day.resultNote) && (
                     <div className="mt-2 space-y-1 pt-2 border-t border-slate-50">
                       {day.restTeams.length > 0 && (
