@@ -248,12 +248,12 @@ export default async function HomePage() {
                             }
 
                             return (
-                              <span className="inline-flex flex-col items-start gap-1">
+                              <span className="inline-flex items-center gap-1">
                                 <span className="rounded-lg bg-blue-50 px-2 py-1 text-sm font-bold text-blue-700">
                                   {labels.leagueLabel}
                                 </span>
                                 {labels.tournamentLabel ? (
-                                  <span className="rounded-lg bg-emerald-50 px-2 py-1 text-sm font-bold text-emerald-700">
+                                  <span className="whitespace-nowrap rounded-lg bg-emerald-50 px-2 py-1 text-sm font-bold text-emerald-700">
                                     {labels.tournamentLabel}
                                   </span>
                                 ) : null}
@@ -436,12 +436,12 @@ export default async function HomePage() {
                           }
 
                           return (
-                            <span className="inline-flex flex-col items-start gap-1">
+                            <span className="inline-flex items-center gap-1">
                               <span className="rounded-lg bg-blue-50 px-2 py-1 text-sm font-bold text-blue-700">
                                 {labels.leagueLabel}
                               </span>
                               {labels.tournamentLabel ? (
-                                <span className="rounded-lg bg-emerald-50 px-2 py-1 text-sm font-bold text-emerald-700">
+                                <span className="whitespace-nowrap rounded-lg bg-emerald-50 px-2 py-1 text-sm font-bold text-emerald-700">
                                   {labels.tournamentLabel}
                                 </span>
                               ) : null}
