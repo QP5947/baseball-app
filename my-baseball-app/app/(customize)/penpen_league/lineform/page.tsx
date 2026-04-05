@@ -151,11 +151,13 @@ function QuickScoreFormContent() {
   };
 
   // Compact表示向けに余白とサイズを調整
-  const inputClass =
-    "w-full text-center text-3xl font-black py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:bg-blue-50 outline-none transition-all";
+  const baseInputClass =
+    "w-full text-center text-3xl font-black py-2 border-2 rounded-xl outline-none transition-all";
+  const enabledInputClass = `${baseInputClass} border-slate-200 focus:border-blue-500 focus:bg-blue-50`;
+  const disabledInputClass = `${baseInputClass} border-slate-300 bg-slate-100 text-slate-400 cursor-not-allowed`;
 
   return (
-    <div className="min-h-screen bg-slate-50 px-3 py-4">
+    <div className="min-h-screen bg-slate-50 px-3 py-1">
       <div className="max-w-sm mx-auto space-y-4">
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
           <p className="text-sm">
@@ -242,7 +244,9 @@ function QuickScoreFormContent() {
               <input
                 type="number"
                 maxLength={2}
-                className={inputClass}
+                className={
+                  isScoreDisabled ? disabledInputClass : enabledInputClass
+                }
                 min={0}
                 max={99}
                 value={awayScore}
@@ -259,7 +263,9 @@ function QuickScoreFormContent() {
               <input
                 type="number"
                 maxLength={2}
-                className={inputClass}
+                className={
+                  isScoreDisabled ? disabledInputClass : enabledInputClass
+                }
                 min={0}
                 max={99}
                 value={homeScore}
