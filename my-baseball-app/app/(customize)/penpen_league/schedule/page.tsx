@@ -380,8 +380,37 @@ export default async function SchedulePage({
                               </div>
 
                               <div className="min-w-15 text-center">
-                                {game.awayScore !== null &&
-                                game.homeScore !== null ? (
+                                {game.isCanceled ? (
+                                  <span className="inline-flex items-center rounded bg-rose-50 px-2 py-0.5 text-sm font-black text-rose-700">
+                                    中止
+                                  </span>
+                                ) : game.forfeitWinner !== null ? (
+                                  <div className="inline-flex items-center gap-1 text-xs font-black sm:text-sm">
+                                    <span
+                                      className={`rounded px-1.5 py-0.5 ${
+                                        game.forfeitWinner === "away"
+                                          ? "bg-emerald-50 text-emerald-700"
+                                          : "bg-rose-50 text-rose-700"
+                                      }`}
+                                    >
+                                      {game.forfeitWinner === "away"
+                                        ? "不戦勝"
+                                        : "不戦敗"}
+                                    </span>
+                                    <span
+                                      className={`rounded px-1.5 py-0.5 ${
+                                        game.forfeitWinner === "home"
+                                          ? "bg-emerald-50 text-emerald-700"
+                                          : "bg-rose-50 text-rose-700"
+                                      }`}
+                                    >
+                                      {game.forfeitWinner === "home"
+                                        ? "不戦勝"
+                                        : "不戦敗"}
+                                    </span>
+                                  </div>
+                                ) : game.awayScore !== null &&
+                                  game.homeScore !== null ? (
                                   <div className="text-base font-black tracking-tight">
                                     <span
                                       className={
