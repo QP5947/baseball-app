@@ -158,12 +158,10 @@ function QuickScoreFormContent() {
     <div className="min-h-screen bg-slate-50 px-3 py-4">
       <div className="max-w-sm mx-auto space-y-4">
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm text-slate-700 space-y-1">
-            <p>
-              <span className="font-semibold text-slate-900">試合日時:</span>{" "}
-              {gameDate} {gameTime}
-            </p>
-          </div>
+          <p className="text-sm">
+            <span className="font-semibold text-slate-900">試合日時:</span>{" "}
+            {gameDate} {gameTime}
+          </p>
 
           <details
             className="rounded-xl border border-slate-200 bg-slate-50"
@@ -276,7 +274,7 @@ function QuickScoreFormContent() {
           <button
             disabled={loading}
             onClick={handleSubmit}
-            className="w-full mt-1 bg-blue-600 text-white text-lg font-black py-4 rounded-xl shadow active:scale-95 transition-all disabled:bg-slate-300"
+            className="w-full mt-1 bg-blue-600 text-white text-lg font-black py-2 rounded-xl shadow active:scale-95 transition-all disabled:bg-slate-300"
           >
             {loading ? "保存中..." : "結果を送信する"}
           </button>
