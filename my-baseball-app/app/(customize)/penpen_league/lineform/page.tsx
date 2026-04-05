@@ -5,6 +5,37 @@ import { useSearchParams } from "next/navigation";
 
 function QuickScoreFormContent() {
   const searchParams = useSearchParams();
+
+  const decodeSafely = (value: string) => {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  };
+
+  const parseLiffState = () => {
+    const rawState = searchParams.get("liff.state") ?? searchParams.get("state");
+    if (!rawState) {
+      return new URLSearchParams();
+    }
+
+    const state = decodeSafely(rawState);
+    const query = state.startsWith("?") ? state.slice(1) : state;
+    const params = new URLSearchParams(query);
+
+    // 一部環境では値がさらにエンコードされて渡るため、1段だけデコードして復元する
+    const normalized = new URLSearchParams();
+    for (const [key, value] of params.entries()) {
+      normalized.set(key, decodeSafely(value));
+    }
+
+    return normalized;
+  };
+
+  const liffStateParams = parseLiffState();
+  const pickParam = (key: string, fallback: string) =>
+    searchParams.get(key) ?? liffStateParams.get(key) ?? fallback;
   const [homeScore, setHomeScore] = useState("");
   const [awayScore, setAwayScore] = useState("");
   const [resultType, setResultType] = useState<
@@ -15,12 +46,11 @@ function QuickScoreFormContent() {
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
 
-  const gameDate = searchParams.get("date") ?? "日付未設定";
-  const gameTime = searchParams.get("time") ?? "時間未設定";
-  const opponent = searchParams.get("opponent") ?? "対戦相手未設定";
-  const gameId = searchParams.get("gameId") ?? "";
-  const awayTeamName = searchParams.get("awayTeam") ?? "未定";
-  const homeTeamName = searchParams.get("homeTeam") ?? "未定";
+  const gameDate = pickParam("date", "日付未設定");
+  const gameTime = pickParam("time", "時間未設定");
+  const gameId = pickParam("gameId", "");
+  const awayTeamName = pickParam("awayTeam", "未定");
+  const homeTeamName = pickParam("homeTeam", "未定");
 
   const normalizeScoreInput = (value: string) => {
     const digitsOnly = value.replace(/\D/g, "").slice(0, 2);
