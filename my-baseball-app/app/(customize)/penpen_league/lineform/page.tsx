@@ -1,8 +1,9 @@
 "use client";
+import { Suspense } from "react";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function QuickScoreForm() {
+function QuickScoreFormContent() {
   const searchParams = useSearchParams();
   const [homeScore, setHomeScore] = useState("");
   const [awayScore, setAwayScore] = useState("");
@@ -270,5 +271,26 @@ export default function QuickScoreForm() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function QuickScoreForm() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 px-3 py-4">
+          <div className="max-w-sm mx-auto space-y-4">
+            <h1 className="text-xl font-black text-center text-slate-800">
+              試合結果の登録
+            </h1>
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 text-center text-sm text-slate-500">
+              読み込み中...
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <QuickScoreFormContent />
+    </Suspense>
   );
 }
