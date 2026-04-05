@@ -152,15 +152,11 @@ function QuickScoreFormContent() {
 
   // Compact表示向けに余白とサイズを調整
   const inputClass =
-    "w-full text-center text-4xl font-black py-4 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:bg-blue-50 outline-none transition-all";
+    "w-full text-center text-3xl font-black py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:bg-blue-50 outline-none transition-all";
 
   return (
     <div className="min-h-screen bg-slate-50 px-3 py-4">
       <div className="max-w-sm mx-auto space-y-4">
-        <h1 className="text-xl font-black text-center text-slate-800">
-          試合結果の登録
-        </h1>
-
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
           <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm text-slate-700 space-y-1">
             <p>
@@ -180,7 +176,7 @@ function QuickScoreFormContent() {
                 試合結果区分:{" "}
                 <span className="text-blue-700">{selectedResultTypeLabel}</span>
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-500 whitespace-nowrap">
                 {isResultTypeOpen ? "▲ 閉じる" : "▼ 開く"}
               </span>
             </summary>
@@ -296,10 +292,6 @@ function QuickScoreFormContent() {
             </p>
           ) : null}
         </div>
-
-        <p className="text-center text-slate-400 text-xs">
-          ※保存するとチーム全員に通知されます
-        </p>
       </div>
     </div>
   );
