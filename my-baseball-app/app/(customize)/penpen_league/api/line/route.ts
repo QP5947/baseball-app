@@ -12,14 +12,15 @@ export async function GET(request: Request) {
   const awayTeam = searchParams.get("awayTeam") ?? "未設定";
   const homeTeam = searchParams.get("homeTeam") ?? "未設定";
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? origin;
-  const formUrl = new URL("/penpen_league/lineform", siteUrl);
-  formUrl.searchParams.set("date", gameDate);
-  formUrl.searchParams.set("time", gameTime);
-  formUrl.searchParams.set("awayTeam", awayTeam);
-  formUrl.searchParams.set("homeTeam", homeTeam);
+  const liffUrl = new URL(
+    process.env.LINE_LIFF_URL ?? "https://liff.line.me/2009699401-fRQomcUo",
+  );
+  liffUrl.searchParams.set("date", gameDate);
+  liffUrl.searchParams.set("time", gameTime);
+  liffUrl.searchParams.set("awayTeam", awayTeam);
+  liffUrl.searchParams.set("homeTeam", homeTeam);
   if (gameId) {
-    formUrl.searchParams.set("gameId", gameId);
+    liffUrl.searchParams.set("gameId", gameId);
   }
 
   if (!CHANNEL_ACCESS_TOKEN) {
@@ -83,7 +84,7 @@ export async function GET(request: Request) {
                 action: {
                   type: "uri",
                   label: "スコア入力を開く",
-                  uri: formUrl.toString(),
+                  uri: liffUrl.toString(),
                 },
                 style: "primary",
                 color: "#1d4ed8",
