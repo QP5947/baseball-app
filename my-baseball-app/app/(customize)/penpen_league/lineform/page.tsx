@@ -15,7 +15,8 @@ function QuickScoreFormContent() {
   };
 
   const parseLiffState = () => {
-    const rawState = searchParams.get("liff.state") ?? searchParams.get("state");
+    const rawState =
+      searchParams.get("liff.state") ?? searchParams.get("state");
     if (!rawState) {
       return new URLSearchParams();
     }
