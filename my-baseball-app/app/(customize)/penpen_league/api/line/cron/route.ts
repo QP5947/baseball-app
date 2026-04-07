@@ -199,7 +199,7 @@ const isAllowedCronWindow = (force: boolean) => {
 
   const now = getJstNow();
   const isSunday = now.weekday === 0;
-  const isDaytime = now.hour >= 8 && now.hour <= 18;
+  const isDaytime = now.hour >= 9 && now.hour <= 18;
   return isSunday && isDaytime;
 };
 

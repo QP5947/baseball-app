@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# supabase migrations containing secrets (apply manually via SQL Editor)
+supabase/migrations/*_setup_pg_cron_line_notify.sql
