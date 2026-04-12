@@ -76,6 +76,14 @@ const buildResultMessage = (params: {
     statusColor = "#10b981";
   }
 
+  const scoreText = params.isCanceled
+    ? "中止"
+    : params.forfeitWinner === "away"
+      ? "不戦勝 - 不戦敗"
+      : params.forfeitWinner === "home"
+        ? "不戦敗 - 不戦勝"
+        : `${params.awayScore ?? 0} - ${params.homeScore ?? 0}`;
+
   return {
     type: "flex",
     altText: `試合結果: ${params.awayTeamName} vs ${params.homeTeamName}`,
@@ -102,85 +110,38 @@ const buildResultMessage = (params: {
           },
           {
             type: "box",
-            layout: "vertical",
-            spacing: "md",
-            margin: "lg",
-            contents: [
-              {
-                type: "box",
-                layout: "horizontal",
-                spacing: "md",
-                contents: [
-                  {
-                    type: "text",
-                    text: params.awayTeamName,
-                    size: "md",
-                    color: "#0f172a",
-                    flex: 3,
-                    wrap: true,
-                  },
-                  {
-                    type: "text",
-                    text: params.isCanceled
-                      ? "-"
-                      : params.forfeitWinner === "away"
-                        ? "不"
-                        : params.forfeitWinner === "home"
-                          ? "0"
-                          : String(params.awayScore ?? 0),
-                    size: "lg",
-                    weight: "bold",
-                    color: "#0f172a",
-                    align: "center",
-                    flex: 1,
-                  },
-                ],
-              },
-              {
-                type: "box",
-                layout: "horizontal",
-                spacing: "md",
-                contents: [
-                  {
-                    type: "text",
-                    text: params.homeTeamName,
-                    size: "md",
-                    color: "#0f172a",
-                    flex: 3,
-                    wrap: true,
-                  },
-                  {
-                    type: "text",
-                    text: params.isCanceled
-                      ? "-"
-                      : params.forfeitWinner === "home"
-                        ? "不"
-                        : params.forfeitWinner === "away"
-                          ? "0"
-                          : String(params.homeScore ?? 0),
-                    size: "lg",
-                    weight: "bold",
-                    color: "#0f172a",
-                    align: "center",
-                    flex: 1,
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            type: "box",
-            layout: "vertical",
+            layout: "horizontal",
             margin: "lg",
             spacing: "sm",
             contents: [
               {
                 type: "text",
-                text: resultText,
-                align: "center",
-                size: "sm",
+                text: params.awayTeamName,
+                size: "md",
+                color: "#0f172a",
+                flex: 3,
+                wrap: true,
+                gravity: "center",
+              },
+              {
+                type: "text",
+                text: scoreText,
+                size: "lg",
                 weight: "bold",
                 color: statusColor,
+                align: "center",
+                flex: 2,
+                gravity: "center",
+              },
+              {
+                type: "text",
+                text: params.homeTeamName,
+                size: "md",
+                color: "#0f172a",
+                flex: 3,
+                wrap: true,
+                align: "end",
+                gravity: "center",
               },
             ],
           },
