@@ -67,7 +67,7 @@ const getJstNow = () => {
   const hour = Number(map.get("hour") ?? "0");
   const minute = Number(map.get("minute") ?? "0");
   const second = Number(map.get("second") ?? "0");
-  const weekday = new Date(`${date}T00:00:00+09:00`).getDay();
+  const weekday = new Date(`${date}T12:00:00+09:00`).getDay();
 
   return { date, hour, minute, second, weekday };
 };
