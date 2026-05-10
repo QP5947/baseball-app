@@ -26,12 +26,10 @@ export async function login(
   const { error } = await supabase.auth.signInWithPassword(data);
 
   if (error) {
-    console.error("Login error:", error.message);
-    // 認証失敗（メールアドレスやパスワードが間違っている場合）
+    console.error("Login error:", error.message, "code:", error.code);
     if (
       error.message === "Invalid login credentials" ||
-      error.message?.includes("認証") ||
-      error.code === "auth/invalid-credentials"
+      error.code === "invalid_credentials"
     ) {
       return {
         success: false,
@@ -39,7 +37,15 @@ export async function login(
         errorType: "auth",
       };
     }
-    // その他のエラー
+    if (error.message === "Email not confirmed") {
+      return {
+        success: false,
+        message:
+          "メールアドレスの確認が完了していません。確認メールのリンクをクリックしてください。",
+        errorType: "auth",
+      };
+    }
+    // その他のエラーは実際のメッセージを表示
     return {
       success: false,
       message: error.message || "ログイン時に予期しないエラーが発生しました。",

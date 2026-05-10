@@ -3,7 +3,19 @@
 import { useActionState, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { login, signup, type LoginResult } from "@/player/login/actions";
-import { supabase } from "@/utils/supabase";
+
+function resolveAppBaseUrl() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+
+  const url = new URL(window.location.origin);
+  if (url.hostname.endsWith("devtunnels.ms")) {
+    url.port = "";
+  }
+  return url.origin;
+}
 
 export default function PlayerLoginForm() {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -66,7 +78,7 @@ export default function PlayerLoginForm() {
   }, [signupState]);
 
   // SNSログイン/新規登録を明示的に分ける
-  const handleSocialLogin = async (
+  const handleSocialLogin = (
     provider: "google" | "facebook" | "x",
     mode: "login" | "signup",
   ) => {
@@ -77,22 +89,23 @@ export default function PlayerLoginForm() {
       // 失敗時に戻る場所は常に現在のページ
       const originPath = "/player/login";
 
-      const callbackUrl = `${window.location.origin}/auth/callback?next=${nextPath}&flow=${mode}&origin=${originPath}`;
-
-      const options: any = {
-        redirectTo: callbackUrl,
-      };
-      if (provider === "facebook") {
-        options.scopes = "public_profile,email";
-      }
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options,
+      const appBaseUrl = resolveAppBaseUrl();
+      const callbackParams = new URLSearchParams({
+        next: nextPath,
+        flow: mode,
+        origin: originPath,
       });
-      if (error) throw error;
+      const callbackUrl = `${appBaseUrl}/auth/callback?${callbackParams.toString()}`;
+
+      const params = new URLSearchParams({ provider, redirectTo: callbackUrl });
+      if (provider === "facebook") {
+        params.set("scopes", "public_profile,email");
+      }
+      window.location.assign(`/api/auth/oauth-url?${params.toString()}`);
     } catch (error: any) {
       if (error) {
         console.error("SNS認証エラー:", error);
+        toast.error("SNS認証の開始に失敗しました。");
       }
     }
   };

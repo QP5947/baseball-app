@@ -3,7 +3,19 @@ import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { login, type LoginResult } from "./actions";
-import { supabase } from "@/utils/supabase";
+
+function resolveAppBaseUrl() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+
+  const url = new URL(window.location.origin);
+  if (url.hostname.endsWith("devtunnels.ms")) {
+    url.port = "";
+  }
+  return url.origin;
+}
 
 export default function AdminLoginClient() {
   const router = useRouter();
@@ -45,26 +57,20 @@ export default function AdminLoginClient() {
     }
   }, [loginState, router]);
 
-  // SNSログイン
-  const handleSocialLogin = async (provider: "google" | "facebook" | "x") => {
-    try {
-      const callbackUrl = `${window.location.origin}/auth/callback?next=/admin/dashboard&flow=login&origin=/admin/login`;
-      const options: any = {
-        redirectTo: callbackUrl,
-      };
-      if (provider === "facebook") {
-        options.scopes = "public_profile,email";
-      }
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options,
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      if (error) {
-        console.error("SNS認証エラー:", error);
-      }
+  // SNSログイン（Route HandlerでPKCEクッキーをセットしながらOAuthプロバイダへリダイレクト）
+  const handleSocialLogin = (provider: "google" | "facebook" | "x") => {
+    const appBaseUrl = resolveAppBaseUrl();
+    const callbackParams = new URLSearchParams({
+      next: "/admin/dashboard",
+      flow: "login",
+      origin: "/admin/login",
+    });
+    const callbackUrl = `${appBaseUrl}/auth/callback?${callbackParams.toString()}`;
+    const params = new URLSearchParams({ provider, redirectTo: callbackUrl });
+    if (provider === "facebook") {
+      params.set("scopes", "public_profile,email");
     }
+    window.location.assign(`/api/auth/oauth-url?${params.toString()}`);
   };
 
   return (

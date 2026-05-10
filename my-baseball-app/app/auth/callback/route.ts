@@ -3,8 +3,18 @@ export const runtime = "nodejs";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
+function resolveCanonicalBase(request: NextRequest) {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+  const fallback = request.nextUrl.origin;
+  return fallback.replace(/\/$/, "");
+}
+
 export async function GET(request: NextRequest) {
   let cookiesToSet: { name: string; value: string; options?: any }[] = [];
+  const canonicalBase = resolveCanonicalBase(request);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,7 +32,7 @@ export async function GET(request: NextRequest) {
   );
 
   const { searchParams } = new URL(request.url);
-  
+
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/";
   const flow = searchParams.get("flow"); // 'signup' or 'login'
@@ -117,7 +127,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const redirectResponse = NextResponse.redirect(redirectUrl);
+  const finalUrl = new URL(
+    `${redirectUrl.pathname}${redirectUrl.search}`,
+    canonicalBase,
+  );
+  const redirectResponse = NextResponse.redirect(finalUrl);
   // 必ずここでcookieをセット
   cookiesToSet.forEach(({ name, value, options }) =>
     redirectResponse.cookies.set(name, value, options),
